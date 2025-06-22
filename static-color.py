@@ -8,7 +8,7 @@ from gateway import Gateway
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--color", type=str, default="#FFFFFF")
-    parser.add_argument("--delay", type=float, default=(30 * 60))
+    parser.add_argument("--delay", type=float, default=5)
 
     args = parser.parse_args()
 
@@ -19,8 +19,9 @@ def main():
         try:
             gateway = Gateway(verbose=True)
 
-            while True:
-                gateway.switch_pad(0, color_tuple)
+            gateway.switch_pad(0, color_tuple)
+
+            while gateway.connected():
                 time.sleep(args.delay)
 
             del gateway
@@ -29,6 +30,7 @@ def main():
             break
         except:
             traceback.print_exc()
+            time.sleep(args.delay)
 
 
 if __name__ == "__main__":

@@ -50,6 +50,7 @@ class Gateway:
 
     def __init__(self, verbose: bool = True):
         self.verbose = verbose
+        self.used_kernel_driver = False
 
         # Initialise USB connection to the device
         self.dev = self._init_usb()
@@ -73,8 +74,6 @@ class Gateway:
         # Double check that the device was found
         if dev is None:
             raise ValueError("Device not found")
-
-        self.used_kernel_driver = False
 
         if platform.system() == "Linux":
             if dev.is_kernel_driver_active(0):
@@ -117,6 +116,13 @@ class Gateway:
         packet = convert_to_packet(command)
 
         self.dev.write(1, packet)
+
+    def connected(self) -> bool:
+        dev = usb.core.find(idVendor=Gateway.VENDOR_ID, idProduct=Gateway.PRODUCT_ID)
+        if dev == None:
+            return False
+
+        return dev.address == self.dev.address
 
     def clear_pads(self):
         self.switch_pad(pad_id=0, color=(0, 0, 0))
