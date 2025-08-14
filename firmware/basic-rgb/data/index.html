@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <h1>Playpad LED Control</h1>
+
+    <div class="controls">
+      <div class="box">
+        <form id="colorForm">
+          <div>
+            <h2>Color Picker</h2>
+
+            <div class="color_picker">
+              <label for="left">Left Color:</label>
+              <input type="color" id="left" name="left" value="#ff0000" />
+
+              <label for="middle">Middle Color:</label>
+              <input type="color" id="middle" name="middle" value="#00ff00" />
+
+              <label for="right">Right Color:</label>
+              <input type="color" id="right" name="right" value="#0000ff" />
+            </div>
+          </div>
+
+          <div class="button-container">
+            <button type="submit">Update Colors</button>
+          </div>
+        </form>
+
+        <script>
+          document
+            .getElementById("colorForm")
+            .addEventListener("submit", async function (e) {
+              e.preventDefault();
+
+              const formData = new FormData(this);
+
+              try {
+                let res = await fetch("/change", {
+                  method: "POST",
+                  body: formData,
+                });
+
+                if (res.ok) {
+                  console.log("Colors updated successfully");
+                } else {
+                  console.error("Failed to update colors");
+                }
+              } catch (err) {
+                console.error("Error sending request:", err);
+              }
+            });
+        </script>
+      </div>
+
+      <div class="box" style="display: flex; flex-direction: column; gap: 1em">
+        <div class="form">
+          <div>
+            <h2>Upload</h2>
+            <p class="sm">Upload new firmware OTA via this page</p>
+          </div>
+
+          <div class="button-container">
+            <a
+              href="/update"
+              target="_blank"
+              style="display: flex; flex-direction: column"
+            >
+              <button>Upload</button>
+            </a>
+          </div>
+        </div>
+
+        <form method="POST" action="/restart" onsubmit="return confirmReset()">
+          <div>
+            <h2>Restart</h2>
+            <p class="sm">This restarts the playpad controller</p>
+          </div>
+
+          <div class="button-container">
+            <button type="submit" class="reset">Restart</button>
+          </div>
+        </form>
+
+        <form method="POST" action="/reset" onsubmit="return confirmReset()">
+          <div>
+            <h2>Factory Reset</h2>
+            <p class="sm">
+              This resets your settings and then restarts the playpad controller
+            </p>
+          </div>
+
+          <div class="button-container">
+            <button type="submit" class="reset">Factory Reset</button>
+          </div>
+
+          <script>
+            function confirmReset() {
+              return confirm(
+                "This will erase all settings and restart the device. Are you sure?"
+              );
+            }
+          </script>
+        </form>
+      </div>
+
+      <div class="box">
+        <h2>Logs</h2>
+        <div id="container">Loading logs...</div>
+
+        <script>
+          async function updateLogs() {
+            try {
+              let res = await fetch("/logs");
+              if (res.ok) {
+                let text = await res.text();
+                document.getElementById("container").innerHTML = text.replace(
+                  /(?:\r\n|\r|\n)/g,
+                  "<br>"
+                );
+                let container = document.getElementById("container");
+                container.scrollTop = container.scrollHeight; // auto-scroll
+              }
+            } catch (e) {
+              console.error("Log fetch failed:", e);
+            }
+          }
+          setInterval(updateLogs, 3000); // every 3s
+          updateLogs(); // initial load
+        </script>
+      </div>
+    </div>
+  </body>
+</html>

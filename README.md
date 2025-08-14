@@ -1,26 +1,25 @@
 ## LegoDimensionsRGB
 
-This project uses PyUSB (libusb) to control the colors of a Lego Dimensions RGB Pad (**Note**: only tested is PS3/Wii/Wii U gamepads).
+This project is a reverse-engineered conversion of a Lego Dimensions (PS3 / Wii U) playpad, in order to keep the respective playpad lights consistently-on.  
+It's powered using an ESP32-S3 which lets you change the color easily via a simple web frontend.  
 
-### Installation
+### Project Layout
 
-#### Windows
-- You can install the python dependencies via `python -m pip install -r requirements.txt`
-- In order to properly utilize the device via USB, you will need to install a new/different Windows driver for the Dimensions RGB Pad.
-    * You can do this via [Zadig](https://zadig.akeo.ie/#), an easy USB driver installer
-    * You will also need to install [libusb](https://libusb.info/)
+There's multiple (planned) board versions; The main / simplest one is `basic-rgb` which allows you to use the ESP32-S3 to control the Playpad's LEDs via a web interface.  
 
+- `firmware` contains the PlatformIO project for the various board versions
+- `schematic` contains the KiCad PCB projects for the various board versions.
+- `scripts` contains a folder with various Python scripts used for controlling an authentic Lego Dimensions Playpad.
+- `reversing` contains another KiCad project which has a vaguely correct, reverse engineered PCB of an original PS3 / Wii U Playpad
 
-#### Linux
+#### basic-rgb
 
-TODO lol
+This is a basic board which uses the ESP32-S3's D-/D+ lines to connect to a playpad and send basic color change commands.  
+![A Lego Dimensions Playpad lit up powered by an ESP32-S3](/firmware/basic-rgb/photos/01.jpg)  
+For more info, go to the [basic-rgb](/firmware/README.md#basic-rgb)
 
-
-### Usage
-
-Once you've installed everything, you can run `python ./test.py` which will run through all of the valid color-changing functions.
-If you know that it works, you can then run `python ./static-color.py --color "#FF00FF"` which will change the RGB color of the playpad. This script should always be running on your host device and will await for any disconnect/reconnections and reset the color on that connection
-
+### Credits
+This project is predominantly based on [woodenphone/lego_dimensions_protocol](https://github.com/woodenphone/lego_dimensions_protocol/blob/master/lego_dimensions_gateway.py). The main difference is that I have updated it to support Python 3 as well as added a `connected()` status function to determine if the playpad was disconnected.
 
 ### Support
 
