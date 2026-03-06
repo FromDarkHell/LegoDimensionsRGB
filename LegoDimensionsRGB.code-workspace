@@ -1,11 +1,17 @@
 {
   "folders": [
     {
-      "path": "firmware/basic-rgb"
+      "name": "basic-emulator",
+      "path": "firmware/basic-emulator",
     },
     {
-      "path": "."
-    }
+      "name": "basic-rgb",
+      "path": "firmware/basic-rgb",
+    },
+    {
+      "name": "LegoDimensionsRGB",
+      "path": ".",
+    },
   ],
   "settings": {
     "files.associations": {
@@ -94,7 +100,9 @@
       "xlocbuf": "cpp",
       "xlocinfo": "cpp",
       "xloctime": "cpp",
-      "xtr1common": "cpp"
-    }
-  }
+      "xtr1common": "cpp",
+      "filesystem": "cpp",
+      "valarray": "cpp",
+    },
+  },
 }

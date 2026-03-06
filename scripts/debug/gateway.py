@@ -7,50 +7,52 @@ import usb.core
 class Gateway:
     """Represents a Lego Dimensions gateway/portal peripheral"""
 
-    STARTUP_PACKET = array.array(
-        "B",
-        [
-            0x55,
-            0x0F,
-            0xB0,
-            0x01,
-            0x28,
-            0x63,
-            0x29,
-            0x20,
-            0x4C,
-            0x45,
-            0x47,
-            0x4F,
-            0x20,
-            0x32,
-            0x30,
-            0x31,
-            0x34,
-            0xF7,
-            0x00,
-            0x00,
-            0x00,
-            0x00,
-            0x00,
-            0x00,
-            0x00,
-            0x00,
-            0x00,
-            0x00,
-            0x00,
-            0x00,
-            0x00,
-            0x00,
-        ],
-    )
+    # STARTUP_PACKET = array.array(
+    #     "B",
+    #     [
+    #         0x55,
+    #         0x0F,
+    #         0xB0,
+    #         0x01,
+    #         0x28,
+    #         0x63,
+    #         0x29,
+    #         0x20,
+    #         0x4C,
+    #         0x45,
+    #         0x47,
+    #         0x4F,
+    #         0x20,
+    #         0x32,
+    #         0x30,
+    #         0x31,
+    #         0x34,
+    #         0xF7,
+    #         0x00,
+    #         0x00,
+    #         0x00,
+    #         0x00,
+    #         0x00,
+    #         0x00,
+    #         0x00,
+    #         0x00,
+    #         0x00,
+    #         0x00,
+    #         0x00,
+    #         0x00,
+    #         0x00,
+    #         0x00,
+    #     ],
+    # )
 
     VENDOR_ID = 0x0E6F
     PRODUCT_ID = 0x0241
+    MAX_LENGTH = 0x20
 
     def __init__(self, verbose: bool = True):
         self.verbose = verbose
         self.used_kernel_driver = False
+        self._cid = 0
 
         # Initialise USB connection to the device
         self.dev = self._init_usb()
@@ -87,16 +89,25 @@ class Gateway:
         # Set the active configuration. With no arguments, the first
         # configuration will be the active one
         dev.set_configuration()
+        self.dev = dev
 
         # Startup
-        dev.write(1, Gateway.STARTUP_PACKET)
+        _ENCODED = "(c) LEGO 2014".encode("ascii")
+        self._send_command([0xB0, self.get_cid(), *_ENCODED])
+        response = dev.read(0x81, Gateway.MAX_LENGTH, timeout=1_000)
+        print(f"{bytes(response).hex()}")
+
         return dev
 
     def _send_command(self, command: List[int]):
-        # One byte must be left unfilled in order to fil the checksum
+        # One byte must be left unfilled in order to fill the checksum
         assert len(command) <= 31
 
         def convert_to_packet(command: List[int]):
+            if command[0] != 0x55:
+                command.insert(0, 0x55)
+                command.insert(1, len(command) - 1)
+
             assert len(command) <= 31
 
             checksum = 0
@@ -134,7 +145,30 @@ class Gateway:
         """
 
         r, g, b = color
-        command = [0x55, 0x06, 0xC0, 0x02, pad_id, r, g, b]
+        command = [0xC0, self.get_cid(), pad_id, r, g, b]
+        self._send_command(command)
+
+    def flash_pad(
+        self,
+        pad_id: int,
+        on_length: int,
+        off_length: int,
+        pulse_count: int,
+        color: Tuple[int, int, int],
+    ):
+        r, g, b = color
+        command = [
+            0xC3,
+            self.get_cid(),
+            pad_id,
+            on_length,
+            off_length,
+            pulse_count,
+            r,
+            g,
+            b,
+        ]
+
         self._send_command(command)
 
     def flash_pads(
@@ -144,15 +178,16 @@ class Gateway:
         Flashes all pads with their own individual colors and rates
         Each pad is represented by a tuple in the format:
             - `(on_length, off_length, pulse_count, (R, G, B))`
+        Pads are in the order of: (center, left, right)
         Color values must be between 0 and 255 (0x00 - 0xFF).
         Use `None` to ignore flashing that specific pad. Ignored pads continue to do whatever they were doing previously.
 
-        - `on_length`: A value of 0x00 is practically non-existant, and a value of 0xFF is ~10 seconds
-        - `off_length`: A value of 0x00 is practically non-existant, and a value of 0xFF is ~10 seconds
-        - `pulse_count`: An odd value leaves pad in new colour, even leaves pad in old, except for 0x00, which changes to new. Values above 0xc6 dont stop.
+        - `on_length`: A value of 0x00 is practically non-existant, and a value of 0xFF is ~25.5 seconds
+        - `off_length`: A value of 0x00 is practically non-existant, and a value of 0xFF is ~25.5 seconds
+        - `pulse_count`: An odd value leaves pad in new colour, even leaves pad in old, except for 0x00, which does nothing. Values above 0xc6 dont stop.
         """
         assert len(pad_data) == 3
-        command = [0x55, 0x17, 0xC7, 0x3E]
+        command = [0xC7, self.get_cid()]
         for pad in pad_data:
             enable, on, off, pulse = 0, 0, 0, 0
             r, g, b = 0, 0, 0
@@ -163,19 +198,31 @@ class Gateway:
 
         self._send_command(command)
 
+    def fade_pad(
+        self, pad_id: int, speed: int, count: int, color: Tuple[int, int, int]
+    ):
+        r, g, b = color
+        command = [0xC2, self.get_cid(), pad_id, speed, count, r, g, b]
+
+        self._send_command(command)
+
     def fade_pads(
         self, pad_data: List[Optional[Tuple[int, int, Tuple[int, int, int]]]]
     ):
         assert len(pad_data) == 3
-        command = [0x55, 0x14, 0xC6, 0x26]
+        command = [0xC6, self.get_cid()]
         for pad in pad_data:
-            enable, fade, pulse = 0, 0, 0
+            enable, fade, count = 0, 0, 0
             r, g, b = 0, 0, 0
 
             if pad != None:
                 enable = 1
-                fade, pulse, (r, g, b) = pad
+                fade, count, (r, g, b) = pad
 
-            command += [enable, fade, pulse, r, g, b]
+            command += [enable, fade, count, r, g, b]
 
         self._send_command(command)
+
+    def get_cid(self):
+        self._cid += 1
+        return self._cid

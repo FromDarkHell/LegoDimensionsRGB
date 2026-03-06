@@ -1,0 +1,993 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      /* Pad color animation support */
+      .pad[data-pad-id] {
+        transition: background-color 0.3s ease;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Playpad Emulator</h1>
+
+    <div style="width: 100%">
+      <div class="main">
+        <div>
+          <div class="box">
+            <h2>Toy Creator</h2>
+            <div
+              style="
+                display: flex;
+                flex-direction: row;
+                justify-content: center;
+                gap: 1em;
+              "
+            >
+              <button data-modal-open="#characterModal">
+                Create Character
+              </button>
+              <button data-modal-open="#vehicleModal">Create Vehicle</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="box" style="flex-direction: row">
+          <div class="box">
+            <div
+              style="
+                display: flex;
+                flex-direction: row;
+                justify-content: center;
+                align-items: center;
+                gap: 1em;
+                margin-left: auto;
+                margin-right: auto;
+              "
+            >
+              <h2 style="flex-shrink: 0">My Toys</h2>
+              <div class="button-container" style="flex-shrink: 1">
+                <button type="button" class="reset" onclick="deleteSelected()">
+                  Delete Toy
+                </button>
+              </div>
+            </div>
+
+            <div class="movement-instructions">
+              Click a toy to select it, then click a playpad space to move it
+              there.
+            </div>
+            <div id="toybox"></div>
+          </div>
+
+          <div class="box" style="max-width: 50%">
+            <h2>Playpad</h2>
+            <div class="movement-instructions">
+              Click on toys here to select them for moving, or click a selected
+              toy again to deselect it.
+            </div>
+
+            <div>
+              <div class="playpad-row">
+                <div class="pad" data-pad-id="2" data-pad-index="1">
+                  <!-- Top-Left Left Pad -->
+                </div>
+
+                <div class="pad hide"></div>
+
+                <div class="pad" data-pad-id="1" data-pad-index="2">
+                  <!-- Middle Pad -->
+                </div>
+
+                <div class="pad hide"></div>
+
+                <div class="pad" data-pad-id="3" data-pad-index="3">
+                  <!-- Top-Right Right Pad -->
+                </div>
+              </div>
+
+              <div class="playpad-row">
+                <div class="pad" data-pad-id="2" data-pad-index="4">
+                  <!-- Bottom-Left Left Pad -->
+                </div>
+                <div class="pad" data-pad-id="2" data-pad-index="5">
+                  <!-- Bottom-Right Left Pad -->
+                </div>
+
+                <div class="pad hide"></div>
+
+                <div class="pad" data-pad-id="3" data-pad-index="6">
+                  <!-- Bottom-Left Right Pad -->
+                </div>
+                <div class="pad" data-pad-id="3" data-pad-index="7">
+                  <!-- Bottom-Right Right Pad -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="advanced">
+          <div class="controls">
+            <div
+              class="box"
+              style="display: flex; flex-direction: column; gap: 1em"
+            >
+              <div style="display: flex; gap: 1em">
+                <div class="form">
+                  <div>
+                    <h2>Upload</h2>
+                    <p class="sm">Upload new firmware OTA via this page</p>
+                  </div>
+
+                  <div class="button-container">
+                    <a
+                      href="/update"
+                      target="_blank"
+                      style="display: flex; flex-direction: column"
+                    >
+                      <button>Upload</button>
+                    </a>
+                  </div>
+                </div>
+
+                <div class="form">
+                  <div>
+                    <h2>Update UI</h2>
+                    <p class="sm">
+                      Replace the web interface with a new HTML file
+                    </p>
+                  </div>
+
+                  <div
+                    class="button-container"
+                    style="
+                      display: flex;
+                      flex-direction: row;
+                      gap: 0.5em;
+                      justify-content: center;
+                      align-items: center;
+                    "
+                  >
+                    <label
+                      for="htmlFileInput"
+                      style="cursor: pointer; margin: 0"
+                    >
+                      <button
+                        type="button"
+                        style="width: 100%; pointer-events: none"
+                        id="htmlFileLabel"
+                      >
+                        Choose File
+                      </button>
+                    </label>
+                    <input
+                      id="htmlFileInput"
+                      type="file"
+                      accept=".html"
+                      style="display: none"
+                      onchange="handleHtmlFileSelected(this)"
+                    />
+                    <button
+                      type="button"
+                      id="htmlUploadBtn"
+                      onclick="uploadHtml()"
+                      disabled
+                      style="opacity: 0.5"
+                    >
+                      Upload
+                    </button>
+                    <p
+                      class="sm"
+                      id="htmlUploadStatus"
+                      style="text-align: center; min-height: 1.2em"
+                    ></p>
+                  </div>
+
+                  <script>
+                    var _pendingHtmlFile = null;
+
+                    function handleHtmlFileSelected(input) {
+                      _pendingHtmlFile = input.files[0] ?? null;
+                      const btn = document.getElementById("htmlUploadBtn");
+                      const label = document.getElementById("htmlFileLabel");
+                      if (_pendingHtmlFile) {
+                        label.textContent = _pendingHtmlFile.name;
+                        btn.disabled = false;
+                        btn.style.opacity = "1";
+                      } else {
+                        label.textContent = "Choose File";
+                        btn.disabled = true;
+                        btn.style.opacity = "0.5";
+                      }
+                      document.getElementById("htmlUploadStatus").textContent =
+                        "";
+                    }
+
+                    async function uploadHtml() {
+                      if (!_pendingHtmlFile) return;
+
+                      const btn = document.getElementById("htmlUploadBtn");
+                      const status =
+                        document.getElementById("htmlUploadStatus");
+
+                      btn.disabled = true;
+                      btn.style.opacity = "0.5";
+                      status.textContent = "Uploading";
+
+                      try {
+                        const res = await fetch("/html", {
+                          method: "POST",
+                          headers: { "Content-Type": "text/html" },
+                          body: _pendingHtmlFile,
+                        });
+
+                        if (res.ok) {
+                          status.textContent =
+                            "Uploaded! Reload to see changes.";
+                          _pendingHtmlFile = null;
+                          document.getElementById("htmlFileInput").value = "";
+                          document.getElementById("htmlFileLabel").textContent =
+                            "Choose File";
+                        } else {
+                          status.textContent =
+                            "Upload failed (" + res.status + ")";
+                          btn.disabled = false;
+                          btn.style.opacity = "1";
+                        }
+                      } catch (e) {
+                        status.textContent = "\u2717 Error: " + e.message;
+                        btn.disabled = false;
+                        btn.style.opacity = "1";
+                      }
+                    }
+                  </script>
+                </div>
+              </div>
+
+              <form
+                method="POST"
+                action="/restart"
+                onsubmit="return confirmReset();"
+              >
+                <div>
+                  <h2>Restart</h2>
+                  <p class="sm">This restarts the playpad controller</p>
+                </div>
+
+                <div class="button-container">
+                  <button type="submit" class="reset">Restart</button>
+                </div>
+              </form>
+
+              <form
+                method="POST"
+                action="/reset"
+                onsubmit="return confirmReset();"
+              >
+                <div>
+                  <h2>Factory Reset</h2>
+                  <p class="sm">
+                    This resets your settings and then restarts the playpad
+                    controller
+                  </p>
+                </div>
+
+                <div class="button-container">
+                  <button type="submit" class="reset">Factory Reset</button>
+                </div>
+
+                <script>
+                  function confirmReset() {
+                    return confirm(
+                      "This will erase all settings and restart the device. Are you sure?",
+                    );
+                  }
+                </script>
+              </form>
+            </div>
+
+            <div class="box">
+              <h2>Logs</h2>
+              <div id="container">Loading logs...</div>
+
+              <script>
+                async function updateLogs() {
+                  try {
+                    let res = await fetch("/logs");
+                    if (res.ok) {
+                      let text = await res.text();
+                      document.getElementById("container").innerHTML =
+                        text.replace(/(?:\r\n|\r|\n)/g, "<br>");
+                      let container = document.getElementById("container");
+                      container.scrollTop = container.scrollHeight; // auto-scroll
+                    }
+                  } catch (e) {
+                    console.error("Log fetch failed:", e);
+                  }
+                }
+                setInterval(updateLogs, 3000); // every 3s
+                updateLogs(); // initial load
+              </script>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="characterModal" class="modal">
+        <div class="modal-content">
+          <span class="modal-close" data-modal-close>&times;</span>
+          <div>
+            <h2>Select a Character</h2>
+            <div id="characterGrid" class="characterGrid">
+              <!-- Characters will be loaded here -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="vehicleModal" class="modal">
+        <div class="modal-content">
+          <span class="modal-close" data-modal-close>&times;</span>
+          <div>
+            <h2>Select a Vehicle</h2>
+            <div id="vehicleGrid">
+              <!-- Characters will be loaded here -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+
+  <script>
+    (function () {
+      document.addEventListener("click", (e) => {
+        //  Modal Behavior
+        if (e.target.matches("[data-modal-open]")) {
+          const modal = document.querySelector(
+            e.target.getAttribute("data-modal-open"),
+          );
+          modal?.classList.add("active");
+        }
+        if (e.target.matches("[data-modal-close], .modal")) {
+          e.target.closest(".modal")?.classList.remove("active");
+        }
+      });
+    })();
+  </script>
+
+  <script>
+    (function () {
+      // location value from JSON -> data-pad-id in the DOM
+      const LOCATION_TO_PAD_ID = { 1: 2, 2: 1, 3: 3 };
+
+      const MODE_SOLID = 0x00;
+      const MODE_FADE = 0x01;
+      const MODE_FLASH = 0x02;
+
+      // Dedicated <style> element for injected @keyframes
+      const styleEl = document.createElement("style");
+      document.head.appendChild(styleEl);
+      const sheet = styleEl.sheet;
+
+      // Track inserted rule indices by name so we can replace them
+      const keyframeIndex = {};
+
+      function rgb(c) {
+        return `rgb(${c.r},${c.g},${c.b})`;
+      }
+
+      let flashSeq = 0;
+      // Insert (or replace) a @keyframes rule, return the name
+      function setKeyframes(name, body) {
+        name = `${name}-${flashSeq++}`;
+        if (keyframeIndex[name] !== undefined) {
+          try {
+            sheet.deleteRule(keyframeIndex[name]);
+          } catch (_) {}
+        }
+
+        console.log(`@keyframes ${name} { ${body} }`);
+
+        const idx = sheet.insertRule(
+          `@keyframes ${name} { ${body} }`,
+          sheet.cssRules.length,
+        );
+        keyframeIndex[name] = idx;
+        return name;
+      }
+
+      function applyToPads(padId, applyFn) {
+        document
+          .querySelectorAll(`.pad[data-pad-id="${padId}"]`)
+          .forEach(applyFn);
+      }
+
+      function applyPadColor(padId, zone) {
+        const { mode, color } = zone;
+
+        // Reset first
+        applyToPads(padId, (pad) => {
+          pad.style.animation = "none";
+          pad.style.backgroundColor = "";
+        });
+
+        if (mode === MODE_SOLID) {
+          applyToPads(padId, (pad) => {
+            pad.style.backgroundColor = rgb(color);
+          });
+        } else if (mode === MODE_FADE) {
+          const speed = zone.fade.speed ?? 10;
+          const count = zone.fade.count ?? 0;
+          const target = zone.fade.target ?? color;
+
+          // Each half-cycle duration in seconds
+          const halfDur = (speed * 0.1).toFixed(1) + "s";
+          const iters = count === 0 ? "infinite" : count;
+
+          // One half-cycle: base → target only.
+          // CSS alternate handles target → base on even iterations.
+          const name = setKeyframes(
+            `pad-fade-${padId}`,
+            `
+    0%   { background-color: ${rgb(color)}; }
+    100% { background-color: ${rgb(target)}; }
+    `,
+          );
+
+          applyToPads(padId, (pad) => {
+            if (pad._fadeEndListener) {
+              pad.removeEventListener("animationend", pad._fadeEndListener);
+              pad._fadeEndListener = null;
+            }
+
+            pad.style.animation = "none";
+            pad.style.backgroundColor = rgb(color);
+            void pad.offsetWidth;
+
+            // alternate: even iterations go base→target, odd go target→base
+            // forwards:  hold the final frame until animationend fires
+            pad.style.animation = `${name} ${halfDur} linear ${iters} alternate forwards`;
+
+            if (count !== 0) {
+              const onEnd = () => {
+                pad.style.animation = "none";
+                // Even count ends on base (last half went target→base)
+                // Odd count ends on target (last half went base→target)
+                pad.style.backgroundColor =
+                  count % 2 === 0 ? rgb(color) : rgb(target);
+                pad._fadeEndListener = null;
+              };
+              pad._fadeEndListener = onEnd;
+              pad.addEventListener("animationend", onEnd, { once: true });
+            }
+          });
+        } else if (mode === MODE_FLASH) {
+          const onTime = zone.flash.onTime ?? 255; // ticks (1 tick = 100ms)
+          const offTime = zone.flash.offTime ?? 255;
+          const count = zone.flash.count ?? 0;
+          const offColor = zone.flash.offColor ?? { r: 0, g: 0, b: 0 };
+
+          const totalTicks = onTime + offTime;
+          const dur = (totalTicks * 0.1).toFixed(1) + "s"; // ticks → seconds
+          const iters = count === 0 ? "infinite" : count;
+
+          const switchPct = (onTime / totalTicks) * 100;
+
+          const name = setKeyframes(
+            `pad-flash-${padId}`,
+            `
+  0%              { background-color: ${rgb(color)}; }
+  ${switchPct}%   { background-color: ${rgb(color)}; }
+  ${switchPct + 0.0001}% { background-color: ${rgb(offColor)}; }
+  100%            { background-color: ${rgb(offColor)}; }
+`,
+          );
+
+          applyToPads(padId, (pad) => {
+            pad.style.animation = "none";
+            pad.style.backgroundColor = rgb(color);
+            void pad.offsetWidth; // force reflow
+
+            // linear: keyframe %s directly control timing, no stepping
+            pad.style.animation = `${name} ${dur} linear ${iters}`;
+
+            if (count !== 0) {
+              pad.addEventListener(
+                "animationend",
+                () => {
+                  pad.style.animation = "none";
+                  // Cycle always ends on offColor (100% keyframe).
+                  // Even count  → last "on" phase was the final visible state → restore color
+                  // Odd count   → last "off" phase was the final visible state → keep offColor
+                  pad.style.backgroundColor =
+                    count % 2 === 0 ? rgb(color) : rgb(offColor);
+                },
+                { once: true },
+              );
+            }
+          });
+        }
+      }
+
+      let lastZones = {};
+      let isFetching = false;
+
+      function zonesEqual(a, b) {
+        return JSON.stringify(a) === JSON.stringify(b);
+      }
+
+      async function updatePadColors() {
+        if (isFetching) return;
+
+        isFetching = true;
+        const res = await fetch("/playpad");
+        isFetching = false;
+
+        if (!res.ok) return;
+        const data = await res.json();
+
+        for (const zone of Object.values(data)) {
+          const padId = LOCATION_TO_PAD_ID[zone.location];
+          if (padId === undefined) continue;
+
+          if (!zonesEqual(lastZones[padId], zone)) {
+            applyPadColor(padId, zone);
+            lastZones[padId] = zone;
+          }
+        }
+      }
+
+      // Initial fetch + poll every 1s
+      updatePadColors();
+      setInterval(updatePadColors, 1_000);
+    })();
+  </script>
+
+  <script>
+    var characters = null;
+    var vehicles = null;
+
+    var selectedToy = null;
+    var toybox = [];
+
+    // Object to track toys on playpad: {padId: toyObject}
+    var _playpadToys = {};
+    const playpadUpdateHandler = {
+      set(target, property, value) {
+        console.log(
+          `Property '${property}' changed from '${JSON.stringify(
+            target[property],
+          )}' to '${JSON.stringify(value)}'`,
+        );
+
+        var oldCharacter = target[property];
+        var newCharacter = value;
+
+        // If the old character exists, then we need to move it to the toybox (atleast, temporarily)
+        if (oldCharacter !== undefined) {
+          fetch("/playpad", {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: new URLSearchParams({
+              uid: oldCharacter.uid,
+              index: -1,
+            }),
+          });
+        }
+
+        if (newCharacter !== undefined) {
+          fetch("/playpad", {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: new URLSearchParams({
+              uid: newCharacter.uid,
+              index: property,
+            }),
+          });
+        }
+
+        // Now it would be time to update the new character to the toypad / elsewhere
+        target[property] = value; // Apply the change
+        return true; // Indicate success
+      },
+    };
+
+    var playpadToys = new Proxy(_playpadToys, playpadUpdateHandler);
+
+    function updateGrid(grid_type, tags) {
+      const grid = document.getElementById(`${grid_type}Grid`);
+      grid.innerHTML = "";
+
+      tags.forEach((tag) => {
+        const option = document.createElement("div");
+        option.className = "character-option";
+
+        if (grid_type == "character") {
+          option.innerHTML = `
+                    <img src="/images/${grid_type}s/${tag.id
+                      .toString()
+                      .padStart(4, "0")}.webp" alt="${tag.name}" >
+                    <p>${tag.name}</p>
+                `;
+
+          option.addEventListener("click", (evt) => {
+            createNewToy(evt.target, tag, grid_type);
+          });
+        }
+
+        if (grid_type == "vehicle") {
+          contents = [];
+
+          for (var build of [tag].concat(tag.rebuilds)) {
+            const el = document.createElement("div");
+            el.className = "character-option";
+            el.addEventListener("click", (evt) => {
+              createNewToy(evt.target, tag, grid_type);
+            });
+            el.innerHTML = `<img src="/images/${grid_type}s/${build.id
+              .toString()
+              .padStart(4, "0")}.webp" alt="${build.name}" >
+                    <p>${build.name}</p>`;
+
+            contents.push(el);
+          }
+
+          // Vehicles require slightly different logic lol
+          option.innerHTML = `
+            <details>
+              <summary style="display: flex; flex-direction: row; gap: 1em; justify-content: center; align-items: center">
+                <img src="/images/${grid_type}s/${tag.id
+                  .toString()
+                  .padStart(
+                    4,
+                    "0",
+                  )}.webp" alt="${tag.name}"  height="64" width="64">
+                <div>${tag.name}</div>
+              </summary>
+              <div style="display: flex; flex-direction: row; gap: 1em; justify-content: center; align-items: center; margin: 20px 0">
+              </div>
+            </details>
+          `;
+
+          // Then append each element from the contents array
+          const contentContainer = option.querySelector(
+            'div[style*="margin: 20px 0"]',
+          );
+          contents.forEach((element) => {
+            contentContainer.appendChild(element);
+          });
+        }
+
+        grid.appendChild(option);
+      });
+    }
+
+    fetch("/json/characters.json").then(async (data) => {
+      characters = await data.json();
+      console.log(`Loaded character data...`);
+
+      updateGrid("character", characters);
+    });
+
+    fetch("/json/vehicles.json").then(async (data) => {
+      vehicles = await data.json();
+      console.log(`Loaded vehicle data...`);
+
+      updateGrid("vehicle", vehicles);
+    });
+
+    // Sends a new request to the server, creating a new toy for inside the toybox
+    async function createNewToy(element, tag, type) {
+      await fetch("/toybox", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          name: tag.name,
+          id: tag.id,
+          type: type,
+        }),
+      }).then((x) => {
+        updateToybox().then((x) => {
+          // Close the modal
+          element.closest(".modal")?.classList.remove("active");
+        });
+      });
+    }
+
+    // Deletes the currently selected toy from the toybox / pad
+    async function deleteSelected(element) {
+      if (selectedToy == null) return;
+
+      if (selectedToy.currentPadId !== undefined) {
+        moveToyToToybox(selectedToy.currentPadId);
+      }
+
+      await fetch("/toybox", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          uid: selectedToy.uid,
+        }),
+      }).then((x) => {
+        updateToybox();
+        clearSelection();
+      });
+    }
+
+    function clearSelection() {
+      // Clear any previously selected toys
+      document.querySelectorAll(".toy-item.selected").forEach((item) => {
+        item.classList.remove("selected");
+      });
+      document.querySelectorAll(".toy-on-pad.selected").forEach((item) => {
+        item.classList.remove("selected");
+      });
+      selectedToy = null;
+    }
+
+    async function updateToybox() {
+      await fetch("/toybox").then(async (data) => {
+        toybox = await data.json();
+        console.log(`Loaded toybox data...`);
+        renderToybox(true);
+      });
+    }
+
+    function renderToybox(updatePads = false) {
+      console.log("Updating toybox...");
+
+      const grid = document.getElementById(`toybox`);
+      grid.innerHTML = "";
+
+      if (updatePads) {
+        const playpadToys = toybox.filter((toy) => toy.index != -1);
+        console.log(
+          `Need to place ${JSON.stringify(playpadToys)} onto playpad`,
+        );
+        playpadToys.forEach((toy) => {
+          moveToyToPad(toy, toy.index, false);
+        });
+      }
+
+      // Only show toys that are not on the playpad
+      const availableToys = toybox.filter(
+        (toy) =>
+          !Object.values(playpadToys).some((padToy) => padToy.uid === toy.uid),
+      );
+
+      console.log(`Available Toybox Toys: ${JSON.stringify(availableToys)}`);
+
+      availableToys.forEach((toy) => {
+        const item = document.createElement("div");
+        item.className = "toy-item";
+
+        item.setAttribute("data-type", toy.type);
+        item.setAttribute("data-uid", toy.uid);
+        item.setAttribute("data-id", toy.id);
+
+        item.innerHTML = `
+                              <img src="/images/${toy.type}s/${toy.id
+                                .toString()
+                                .padStart(
+                                  4,
+                                  "0",
+                                )}.webp" alt="${toy.name}"  height="80" width="80">
+                      <p>${toy.name}</p>
+        `;
+
+        item.addEventListener("click", toyClick);
+        grid.appendChild(item);
+      });
+    }
+
+    // Handle pad clicks for toy movement
+    function toyClick(evt) {
+      const container = evt.target.closest(".toy-item");
+      const toyUid = container.getAttribute("data-uid");
+
+      // If we're selecting the same toy that's already selected, we probably wanna just de-select it.
+      if (selectedToy !== null) {
+        if (selectedToy.uid == toyUid) {
+          clearSelection();
+          return;
+        }
+      }
+
+      clearSelection();
+      selectedToy = toybox.find((x) => x.uid == toyUid);
+
+      container.classList.add("selected");
+      console.log(`Selected toy: ${JSON.stringify(selectedToy)}`);
+    }
+
+    function swapToyWithPad(selectedToy, targetPadId) {
+      const toyOnTargetPad = playpadToys[targetPadId];
+
+      // If selected toy is from toybox
+      if (selectedToy.currentPadId === undefined) {
+        // Move toy from toybox to pad
+        playpadToys[targetPadId] = selectedToy;
+        // (toyOnTargetPad will automatically appear in toybox when renderToybox() runs)
+      }
+      // If selected toy is from another pad
+      else {
+        // Clear the source pad
+        delete playpadToys[selectedToy.currentPadId];
+        // Put selected toy on target pad
+        playpadToys[targetPadId] = selectedToy;
+        // Put displaced toy on source pad
+        playpadToys[selectedToy.currentPadId] = toyOnTargetPad;
+      }
+
+      // Re-render affected areas
+      if (selectedToy.currentPadId !== undefined) {
+        renderPad(selectedToy.currentPadId);
+      }
+      renderPad(targetPadId);
+      renderToybox();
+
+      console.log(
+        `Swapped toys: ${selectedToy.name} moved to pad ${targetPadId}, ${
+          toyOnTargetPad.name
+        } ${
+          selectedToy.currentPadId !== undefined
+            ? `moved to pad ${selectedToy.currentPadId}`
+            : "moved to toybox"
+        }`,
+      );
+    }
+
+    function swapToysBetweenPads(sourcePadId, targetPadId) {
+      const sourceToy = playpadToys[sourcePadId];
+      const targetToy = playpadToys[targetPadId];
+
+      // Swap the toys
+      playpadToys[sourcePadId] = targetToy;
+      playpadToys[targetPadId] = sourceToy;
+
+      // Re-render both pads
+      renderPad(sourcePadId);
+      renderPad(targetPadId);
+
+      console.log(
+        `Swapped toys: ${sourceToy.name} and ${targetToy.name} between pads ${sourcePadId} and ${targetPadId}`,
+      );
+    }
+
+    function handleToyOnPadClick(e, padId) {
+      e.stopPropagation();
+
+      const toyOnPad = playpadToys[padId];
+      if (!toyOnPad) return;
+
+      // If no toy is selected, select this toy
+      if (!selectedToy) {
+        selectedToy = { ...toyOnPad, currentPadId: padId };
+        e.target.closest(".toy-on-pad").classList.add("selected");
+        console.log(`Selected toy on pad: ${JSON.stringify(selectedToy)}`);
+      }
+      // If this toy is already selected, move it back to toybox
+      else if (
+        selectedToy.uid === toyOnPad.uid &&
+        selectedToy.currentPadId === padId
+      ) {
+        moveToyToToybox(padId);
+        clearSelection();
+      } else {
+        if (selectedToy.currentPadId === undefined) {
+          // Selected toy is from toybox, swap with pad toy
+          swapToyWithPad(selectedToy, padId);
+        } else {
+          // Both toys are on pads, swap between pads
+          swapToysBetweenPads(selectedToy.currentPadId, padId);
+        }
+
+        clearSelection();
+      }
+    }
+
+    function moveToyToPad(toy, padId, updateToybox = true) {
+      console.log(`Moved toy ${toy.name} to pad ${padId}`);
+
+      playpadToys[padId] = toy;
+      renderPad(padId);
+
+      if (updateToybox) {
+        renderToybox();
+      }
+    }
+
+    function moveToyBetweenPads(fromPadId, toPadId) {
+      const toy = playpadToys[fromPadId];
+      delete playpadToys[fromPadId];
+      playpadToys[toPadId] = toy;
+
+      renderPad(fromPadId);
+      renderPad(toPadId);
+      console.log(
+        `Moved toy ${toy.name} from pad ${fromPadId} to pad ${toPadId}`,
+      );
+    }
+
+    function moveToyToToybox(padId) {
+      const toy = playpadToys[padId];
+      playpadToys[padId] = undefined;
+      delete playpadToys[padId];
+
+      renderPad(padId);
+      renderToybox();
+      console.log(`Moved toy ${toy.name} back to toybox`);
+    }
+
+    function renderPad(padId) {
+      const pad = document.querySelector(`[data-pad-index="${padId}"]`);
+      const toy = playpadToys[padId];
+
+      if (toy) {
+        pad.classList.add("occupied");
+        pad.innerHTML = `
+          <div class="toy-on-pad" data-uid="${toy.uid}">
+            <img src="/images/${toy.type}s/${toy.id
+              .toString()
+              .padStart(4, "0")}.webp" alt="${toy.name}" >
+            <p>${toy.name}</p>
+          </div>
+        `;
+      } else {
+        pad.classList.remove("occupied");
+        pad.innerHTML = "";
+      }
+    }
+
+    // Initialize the system
+    function init() {
+      updateToybox();
+
+      // Add click event handlers to all of the pads
+      document.querySelectorAll(".pad[data-pad-index]").forEach((pad) => {
+        pad.addEventListener("click", function (e) {
+          const padId = this.getAttribute("data-pad-index");
+
+          // If clicking on a toy that's already on a pad
+          if (e.target.closest(".toy-on-pad")) {
+            handleToyOnPadClick(e, padId);
+            return;
+          }
+
+          // If we have a selected toy from toybox, move it to this pad
+          if (
+            selectedToy &&
+            !playpadToys[padId] &&
+            selectedToy.currentPadId === undefined
+          ) {
+            moveToyToPad(selectedToy, padId);
+            clearSelection();
+          }
+          // If clicking on an empty pad and we have a toy selected from another pad
+          else if (
+            selectedToy &&
+            !playpadToys[padId] &&
+            selectedToy.currentPadId !== undefined
+          ) {
+            moveToyBetweenPads(selectedToy.currentPadId, padId);
+            clearSelection();
+          }
+        });
+      });
+    }
+
+    // Start the application
+    init();
+  </script>
+</html>
