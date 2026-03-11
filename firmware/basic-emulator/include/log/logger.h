@@ -9,32 +9,31 @@
 // Serial  = USB CDC (always available)
 // Serial1 = UART0 (GPIO 0/1)
 // Serial2 = UART1 (GPIO 4/5 or 8/9 etc.)
-#define LOG_UART Serial
+#define LOG_UART Serial1
 #define LOG_UART_TX 17
 #define LOG_UART_RX 16
 
-class Logger
-{
-public:
+class Logger {
+   public:
     void begin();
-    void log(const char *level, const char *fmt, va_list args);
+    void log(const char* level, const char* fmt, va_list args);
 
     void blinkStatus(int count, int interval_ms);
 
-    const char *getBuffer() const { return logBuffer; }
+    const char* getBuffer() const { return logBuffer; }
 
-private:
+   private:
     char logBuffer[LOG_BUFFER_SIZE];
     size_t logBufferPos = 0;
 
-    void appendToLogBuffer(const char *msg);
-    void sendLogOutput(const char *msg);
+    void appendToLogBuffer(const char* msg);
+    void sendLogOutput(const char* msg);
 };
 
 extern Logger logger;
 
 void log_init();
-const char *log_get();
-void log_dbg(const char *fmt, ...);
-void log_warn(const char *fmt, ...);
-void log_err(const char *fmt, ...);
+const char* log_get();
+void log_dbg(const char* fmt, ...);
+void log_warn(const char* fmt, ...);
+void log_err(const char* fmt, ...);

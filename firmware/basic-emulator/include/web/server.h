@@ -12,14 +12,13 @@
 #include <LEAmDNS.h>
 #include "config/config.h"
 #include "fs/fs.h"
+#include "lego/playpad.h"
 #include "lego/toybox.h"
 #include "log/logger.h"
-#include "lego/playpad.h"
 
-class LegoServer
-{
-public:
-    LegoServer(const char *, const char *, PlayPad *);
+class LegoServer {
+   public:
+    LegoServer(const char*, const char*, PlayPad*);
     ~LegoServer();
 
     void initialize();
@@ -27,7 +26,7 @@ public:
 
     bool success = false;
 
-protected:
+   protected:
     bool connect_to_ap();
     bool start_mdns();
     void start_web();
@@ -37,13 +36,13 @@ protected:
     bool load_toybox();
     bool store_toybox();
 
-    const char *ssid;
-    const char *password;
+    const char* ssid;
+    const char* password;
 
-    const char *html = nullptr;
-    const char *css = nullptr;
+    const char* html = nullptr;
+    const char* css = nullptr;
 
-    AsyncWebServer *server = nullptr;
-    Toybox *toybox = nullptr;
-    PlayPad *playpad = nullptr;
+    AsyncWebServer* server = nullptr;
+    Toybox* toybox = nullptr;
+    PlayPad* playpad = nullptr;
 };

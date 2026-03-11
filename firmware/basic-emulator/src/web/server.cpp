@@ -1,7 +1,6 @@
 #include "web/server.h"
 
-LegoServer::LegoServer(const char *ssid, const char *password, PlayPad *playpadInstance)
-{
+LegoServer::LegoServer(const char* ssid, const char* password, PlayPad* playpadInstance) {
     this->ssid = ssid;
     this->password = password;
     this->html = fs_read("/index.html");
@@ -12,19 +11,16 @@ LegoServer::LegoServer(const char *ssid, const char *password, PlayPad *playpadI
 }
 LegoServer::~LegoServer() {}
 
-void LegoServer::initialize()
-{
+void LegoServer::initialize() {
     success = true;
 
     success &= this->connect_to_ap();
-    if (!success)
-    {
+    if (!success) {
         return;
     }
 
     success &= this->start_mdns();
-    if (!success)
-    {
+    if (!success) {
         return;
     }
 
@@ -33,10 +29,8 @@ void LegoServer::initialize()
     this->load_toybox();
 }
 
-bool LegoServer::start_mdns()
-{
-    if (!MDNS.begin("emupad"))
-    {
+bool LegoServer::start_mdns() {
+    if (!MDNS.begin("emupad")) {
         log_dbg("[server::start_mdns] Error setting up MDNS!");
 
         return false;
@@ -45,33 +39,31 @@ bool LegoServer::start_mdns()
     return true;
 }
 
-bool LegoServer::connect_to_ap()
-{
+bool LegoServer::connect_to_ap() {
     WiFi.mode(WIFI_STA);
 
     log_dbg("[server::connect_to_ap] Connecting to '%s'", this->ssid);
 
     int attempts = 0;
-    while (attempts < 5)
-    {
+    while (attempts < 5) {
         wl_status_t status = (wl_status_t)WiFi.begin(this->ssid, this->password);
 
-        while (status != WL_CONNECTED)
-        {
-            if (status == WL_CONNECT_FAILED)
+        while (status != WL_CONNECTED) {
+            if (status == WL_CONNECT_FAILED) {
                 break;
+            }
 
             status = (wl_status_t)WiFi.status();
             delay(500);
         }
 
-        if (status == WL_CONNECTED)
-        {
+        if (status == WL_CONNECTED) {
             break;
         }
 
         attempts++;
-        log_dbg("[server::connect_to_ap] Attempt %d to connect to '%s' failed", attempts, this->ssid);
+        log_dbg("[server::connect_to_ap] Attempt %d to connect to '%s' failed", attempts,
+                this->ssid);
         delay(1000);
     }
 
@@ -81,57 +73,72 @@ bool LegoServer::connect_to_ap()
     return true;
 }
 
-void LegoServer::start_web()
-{
+void LegoServer::start_web() {
     server = new AsyncWebServer(80);
 
-    server->on("/style.css", HTTP_GET, [this](AsyncWebServerRequest *request)
-               { request->send(200, "text/css", this->css); });
+    server->on("/style.css", HTTP_GET, [this](AsyncWebServerRequest* request) {
+        request->send(200, "text/css", this->css);
+    });
 
-    server->on("/reset", HTTP_POST, [this](AsyncWebServerRequest *request)
-               {
-                   config.clear();
-                   request->send(200, "text/html", "Success! Please wait");
-                   rp2040.reboot(); });
+    server->on("/reset", HTTP_POST, [this](AsyncWebServerRequest* request) {
+        config.clear();
+        request->send(200, "text/html", "Success! Please wait");
+        rp2040.reboot();
+    });
 
-    server->on("/restart", HTTP_POST, [this](AsyncWebServerRequest *request)
-               {
-                   request->send(200, "text/html", "Success! Please wait");
-                   rp2040.reboot(); });
+    server->on("/restart", HTTP_POST, [this](AsyncWebServerRequest* request) {
+        request->send(200, "text/html", "Success! Please wait");
+        rp2040.reboot();
+    });
 
-    server->on("/logs", HTTP_GET, [this](AsyncWebServerRequest *request)
-               { request->send(200, "text/plain", log_get()); });
+    server->on("/logs", HTTP_GET, [this](AsyncWebServerRequest* request) {
+        request->send(200, "text/plain", log_get());
+    });
 
-    server->on("/", HTTP_GET, [this](AsyncWebServerRequest *request)
-               { request->send(200, "text/html", this->html); });
+    server->on("/", HTTP_GET, [this](AsyncWebServerRequest* request) {
+        request->send(200, "text/html", this->html);
+    });
 
     server->on(
-        "/html", HTTP_POST,
-        [](AsyncWebServerRequest *request) {},
-        nullptr,
-        [this](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total)
-        {
+        "/upload", HTTP_POST, [](AsyncWebServerRequest* request) {}, nullptr,
+        [this](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index,
+               size_t total) {
             static String body;
+            static String filePath;
 
-            if (index == 0)
-            {
+            if (index == 0) {
+                // Resolve file path from query param, e.g. POST /upload?path=/index.html
+                if (request->hasParam("path")) {
+                    filePath = request->getParam("path")->value();
+                    // Ensure it starts with a leading slash
+                    if (!filePath.startsWith("/")) {
+                        filePath = "/" + filePath;
+                    }
+                } else {
+                    request->send(400, "text/plain", "Missing 'path' query parameter");
+                    return;
+                }
+
                 body = "";
                 body.reserve(total);
             }
 
-            body += String((char *)data).substring(0, len);
+            body += String((char*)data).substring(0, len);
 
-            if (index + len == total)
-            {
-                fs_write("/index.html", body.c_str());
-                free((void *)this->html);
-                this->html = strdup(body.c_str());
-                request->send(200, "text/plain", "OK");
+            if (index + len == total) {
+                fs_write(filePath.c_str(), body.c_str());
+
+                // Only refresh cached html pointer if the uploaded file is the active HTML page
+                if (filePath == "/index.html") {
+                    free((void*)this->html);
+                    this->html = strdup(body.c_str());
+                }
+
+                request->send(200, "text/plain", "Uploaded " + filePath);
             }
         });
 
-    server->onNotFound([this](AsyncWebServerRequest *request)
-                       {
+    server->onNotFound([this](AsyncWebServerRequest* request) {
         String path = request->url();
         // log_dbg("[server] Request for %s", path.c_str());
 
@@ -143,13 +150,15 @@ void LegoServer::start_web()
 
             AsyncWebServerResponse* response = request->beginResponse(LittleFS, path, contentType);
 
-            // Cache static assets for 7 days and mark them as immutable, so that browsers can cache them aggressively
+            // Cache static assets for 7 days and mark them as immutable, so that browsers can cache
+            // them aggressively
             response->addHeader("Cache-Control", "public, max-age=604800, immutable");
 
             request->send(response);
         } else {
             request->send(404, "text/html", "Failed to find file");
-        } });
+        }
+    });
 
     this->add_lego_endpoints();
 
@@ -158,24 +167,21 @@ void LegoServer::start_web()
     ElegantOTA.begin(server);
 }
 
-void LegoServer::loop()
-{
+void LegoServer::loop() {
     MDNS.update();
     ElegantOTA.loop();
 }
 
-bool LegoServer::add_lego_endpoints()
-{
-    server->on("/toybox", HTTP_GET, [this](AsyncWebServerRequest *request)
-               {
+bool LegoServer::add_lego_endpoints() {
+    server->on("/toybox", HTTP_GET, [this](AsyncWebServerRequest* request) {
         if (this->toybox == nullptr) {
             this->load_toybox();
         }
-        request->send(200, "application/json", this->toybox->serialize()); });
+        request->send(200, "application/json", this->toybox->serialize());
+    });
 
     // Running a DELETE request onto the `/toybox` endpoint, adds a new tag to the toybox
-    server->on("/toybox", HTTP_DELETE, [this](AsyncWebServerRequest *request)
-               {
+    server->on("/toybox-delete", HTTP_POST, [this](AsyncWebServerRequest* request) {
         if (this->toybox == nullptr) {
             this->load_toybox();
         }
@@ -193,15 +199,22 @@ bool LegoServer::add_lego_endpoints()
 
         if (tag_uid == nullptr) {
             request->send(500);
+            return;
         }
 
-        this->toybox->removeToy(tag_uid);
+        log_dbg("[server::toybox] Deleting tag from toybox / UID: %s", tag_uid);
+
+        if (!this->toybox->removeToy(tag_uid)) {
+            request->send(404);
+            return;
+        }
+
         this->store_toybox();
-        request->send(200, "application/json", this->toybox->serialize()); });
+        request->send(200, "application/json", this->toybox->serialize());
+    });
 
     // Running a PUT request onto the `/toybox` endpoint, adds a new tag to the toybox
-    server->on("/toybox", HTTP_PUT, [this](AsyncWebServerRequest *request)
-               {
+    server->on("/toybox", HTTP_PUT, [this](AsyncWebServerRequest* request) {
         if (this->toybox == nullptr) {
             this->load_toybox();
         }
@@ -229,44 +242,41 @@ bool LegoServer::add_lego_endpoints()
 
         this->toybox->addToy(tag_name, tag_id, tag_type);
         this->store_toybox();
-        request->send(200, "application/json", this->toybox->serialize()); });
+        request->send(200, "application/json", this->toybox->serialize());
+    });
 
     // *Playpad* Management
 
-    server->on("/playpad", HTTP_GET, [this](AsyncWebServerRequest *request)
-               {
-                   if (this->playpad == nullptr)
-                   {
-                       request->send(404);
-                       return;
-                   }
+    server->on("/playpad", HTTP_GET, [this](AsyncWebServerRequest* request) {
+        if (this->playpad == nullptr) {
+            request->send(404);
+            return;
+        }
 
-                   JsonDocument playpadState;
+        JsonDocument playpadState;
 
-                    static constexpr struct {
-                        const char *key;
-                        PadLocation location;
-                    } PAD_ENTRIES[] = {
-                        { "left",   PadLocation::Left   },
-                        { "center", PadLocation::Center },
-                        { "right",  PadLocation::Right  },
-                    };
+        static constexpr struct {
+            const char* key;
+            PadLocation location;
+        } PAD_ENTRIES[] = {
+            {"left", PadLocation::LEFT},
+            {"center", PadLocation::CENTER},
+            {"right", PadLocation::RIGHT},
+        };
 
+        for (const auto& entry : PAD_ENTRIES) {
+            JsonObject obj = playpadState[entry.key].to<JsonObject>();
+            this->playpad->getPad(entry.location)->toJson(obj);
+        }
 
-                    for (const auto &entry : PAD_ENTRIES)
-                    {
-                        JsonObject obj = playpadState[entry.key].to<JsonObject>();
-                        this->playpad->getPad(entry.location)->toJson(obj);
-                    }
-
-                   String result;
-                   serializeJson(playpadState, result);
-                   request->send(200, "application/json", result); });
+        String result;
+        serializeJson(playpadState, result);
+        request->send(200, "application/json", result);
+    });
 
     // Running a PUT request onto the `/playpad` endpoint
     // It lets you move a tag around based on the UID.
-    server->on("/playpad", HTTP_PUT, [this](AsyncWebServerRequest *request)
-               {
+    server->on("/playpad", HTTP_PUT, [this](AsyncWebServerRequest* request) {
         if (this->toybox == nullptr) {
             this->load_toybox();
         }
@@ -285,45 +295,46 @@ bool LegoServer::add_lego_endpoints()
             }
         }
 
-        JsonDocument* tag = this->toybox->getByUID(tag_uid);
+        ToyTag* tag = this->toybox->getByUID(tag_uid);
         if (tag == nullptr) {
             request->send(404);
             return;
         }
 
-        (*tag)["index"] = tag_index;
-
+        const TagPadLocation lastLocation = (*tag).padIndex;
+        const TagPadLocation location = static_cast<TagPadLocation>(std::stoi(tag_index));
+        (*tag).padIndex = location;
         this->store_toybox();
-        request->send(200, "application/json", this->toybox->serialize()); });
+
+        this->playpad->tagChangeEvent(tag, lastLocation);
+
+        request->send(200, "application/json", this->toybox->serialize());
+    });
 
     return true;
 }
 
-bool LegoServer::load_toybox()
-{
+bool LegoServer::load_toybox() {
     this->toybox = new Toybox();
 
-    if (!fs_exists("/toybox.json"))
-    {
+    if (!fs_exists("/toybox.json")) {
         return true;
     }
 
-    const char *json = fs_read("/toybox.json");
+    const char* json = fs_read("/toybox.json");
+
     return this->toybox->deserialize(json);
 }
 
-bool LegoServer::store_toybox()
-{
-    if (this->toybox == nullptr)
-    {
+bool LegoServer::store_toybox() {
+    if (this->toybox == nullptr) {
         return false;
     }
 
     String serialized = this->toybox->serialize();
-    const char *content = serialized.c_str();
+    const char* content = serialized.c_str();
     bool success = fs_write("/toybox.json", content);
-    if (!success)
-    {
+    if (!success) {
         log_warn("[LegoServer::store_toybox] Failed to write toybox cache file");
     }
 

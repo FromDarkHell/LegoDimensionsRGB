@@ -1,11 +1,9 @@
 #include "fs/fs.h"
 
-bool fs_init()
-{
+bool fs_init() {
     log_dbg("[fs_init] Initializing LittleFS");
 
-    if (!LittleFS.begin())
-    {
+    if (!LittleFS.begin()) {
         log_err("[fs_init] Failed to mount LittleFS, formatting...");
         LittleFS.format();
         return LittleFS.begin();
@@ -14,33 +12,28 @@ bool fs_init()
     return true;
 }
 
-bool fs_exists(const char *name)
-{
+bool fs_exists(const char* name) {
     return LittleFS.exists(name);
 }
 
-const char *fs_read(const char *name, bool terminate)
-{
-    if (name == nullptr)
-    {
+const char* fs_read(const char* name, bool terminate) {
+    if (name == nullptr) {
         log_err("[fs_read] Filename is NULL");
         return nullptr;
     }
 
     File file = LittleFS.open(name, "r");
-    if (!file)
-    {
+    if (!file) {
         log_err("[fs_read] Failed to open file: %s", name);
         return nullptr;
     }
 
     size_t size = file.size();
-    char *buffer = new char[size + (terminate ? 1 : 0)];
+    char* buffer = new char[size + (terminate ? 1 : 0)];
 
     size_t bytesRead = file.readBytes(buffer, size);
 
-    if (terminate)
-    {
+    if (terminate) {
         buffer[bytesRead] = '\0';
     }
 
@@ -48,22 +41,19 @@ const char *fs_read(const char *name, bool terminate)
     return buffer;
 }
 
-bool fs_write(const char *name, const char *content, bool unsafe)
-{
+bool fs_write(const char* name, const char* content, bool unsafe) {
     File file = LittleFS.open(name, "w");
-    if (!file)
-    {
+    if (!file) {
         return false;
     }
 
     const size_t size = strlen(content);
-    if (!unsafe && size == 0)
-    {
+    if (!unsafe && size == 0) {
         log_warn("[fs_write] Failed to write %s due to file size safety", name);
         return false;
     }
 
-    const size_t written = file.write(reinterpret_cast<const uint8_t *>(content), size);
+    const size_t written = file.write(reinterpret_cast<const uint8_t*>(content), size);
     file.flush();
 
     file.close();

@@ -134,10 +134,8 @@
 
                 <div class="form">
                   <div>
-                    <h2>Update UI</h2>
-                    <p class="sm">
-                      Replace the web interface with a new HTML file
-                    </p>
+                    <h2>Upload File</h2>
+                    <p class="sm">Upload a file to the device filesystem</p>
                   </div>
 
                   <div
@@ -150,29 +148,25 @@
                       align-items: center;
                     "
                   >
-                    <label
-                      for="htmlFileInput"
-                      style="cursor: pointer; margin: 0"
-                    >
+                    <label for="fileInput" style="cursor: pointer; margin: 0">
                       <button
                         type="button"
                         style="width: 100%; pointer-events: none"
-                        id="htmlFileLabel"
+                        id="fileLabel"
                       >
                         Choose File
                       </button>
                     </label>
                     <input
-                      id="htmlFileInput"
+                      id="fileInput"
                       type="file"
-                      accept=".html"
                       style="display: none"
-                      onchange="handleHtmlFileSelected(this)"
+                      onchange="handleFileSelected(this)"
                     />
                     <button
                       type="button"
-                      id="htmlUploadBtn"
-                      onclick="uploadHtml()"
+                      id="uploadBtn"
+                      onclick="uploadFile()"
                       disabled
                       style="opacity: 0.5"
                     >
@@ -180,20 +174,20 @@
                     </button>
                     <p
                       class="sm"
-                      id="htmlUploadStatus"
+                      id="uploadStatus"
                       style="text-align: center; min-height: 1.2em"
                     ></p>
                   </div>
 
                   <script>
-                    var _pendingHtmlFile = null;
+                    var _pendingFile = null;
 
-                    function handleHtmlFileSelected(input) {
-                      _pendingHtmlFile = input.files[0] ?? null;
-                      const btn = document.getElementById("htmlUploadBtn");
-                      const label = document.getElementById("htmlFileLabel");
-                      if (_pendingHtmlFile) {
-                        label.textContent = _pendingHtmlFile.name;
+                    function handleFileSelected(input) {
+                      _pendingFile = input.files[0] ?? null;
+                      const btn = document.getElementById("uploadBtn");
+                      const label = document.getElementById("fileLabel");
+                      if (_pendingFile) {
+                        label.textContent = _pendingFile.name;
                         btn.disabled = false;
                         btn.style.opacity = "1";
                       } else {
@@ -201,34 +195,38 @@
                         btn.disabled = true;
                         btn.style.opacity = "0.5";
                       }
-                      document.getElementById("htmlUploadStatus").textContent =
-                        "";
+                      document.getElementById("uploadStatus").textContent = "";
                     }
 
-                    async function uploadHtml() {
-                      if (!_pendingHtmlFile) return;
+                    async function uploadFile() {
+                      if (!_pendingFile) return;
 
-                      const btn = document.getElementById("htmlUploadBtn");
-                      const status =
-                        document.getElementById("htmlUploadStatus");
+                      const btn = document.getElementById("uploadBtn");
+                      const status = document.getElementById("uploadStatus");
 
                       btn.disabled = true;
                       btn.style.opacity = "0.5";
-                      status.textContent = "Uploading";
+                      status.textContent = "Uploading...";
 
                       try {
-                        const res = await fetch("/html", {
-                          method: "POST",
-                          headers: { "Content-Type": "text/html" },
-                          body: _pendingHtmlFile,
-                        });
+                        const path = "/" + _pendingFile.name;
+                        const res = await fetch(
+                          "/upload?path=" + encodeURIComponent(path),
+                          {
+                            method: "POST",
+                            headers: {
+                              "Content-Type": "application/octet-stream",
+                            },
+                            body: _pendingFile,
+                          },
+                        );
 
                         if (res.ok) {
-                          status.textContent =
-                            "Uploaded! Reload to see changes.";
-                          _pendingHtmlFile = null;
-                          document.getElementById("htmlFileInput").value = "";
-                          document.getElementById("htmlFileLabel").textContent =
+                          const msg = await res.text();
+                          status.textContent = msg;
+                          _pendingFile = null;
+                          document.getElementById("fileInput").value = "";
+                          document.getElementById("fileLabel").textContent =
                             "Choose File";
                         } else {
                           status.textContent =
@@ -237,7 +235,7 @@
                           btn.style.opacity = "1";
                         }
                       } catch (e) {
-                        status.textContent = "\u2717 Error: " + e.message;
+                        status.textContent = "Error: " + e.message;
                         btn.disabled = false;
                         btn.style.opacity = "1";
                       }
@@ -293,7 +291,11 @@
               <div id="container">Loading logs...</div>
 
               <script>
+                let isFetchingLogs = false;
                 async function updateLogs() {
+                  if (isFetchingLogs) return;
+
+                  isFetchingLogs = true;
                   try {
                     let res = await fetch("/logs");
                     if (res.ok) {
@@ -305,8 +307,11 @@
                     }
                   } catch (e) {
                     console.error("Log fetch failed:", e);
+                  } finally {
+                    isFetchingLogs = false;
                   }
                 }
+
                 setInterval(updateLogs, 3000); // every 3s
                 updateLogs(); // initial load
               </script>
@@ -711,8 +716,8 @@
         moveToyToToybox(selectedToy.currentPadId);
       }
 
-      await fetch("/toybox", {
-        method: "DELETE",
+      await fetch("/toybox-delete", {
+        method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
         },
@@ -751,12 +756,12 @@
       grid.innerHTML = "";
 
       if (updatePads) {
-        const playpadToys = toybox.filter((toy) => toy.index != -1);
-        console.log(
-          `Need to place ${JSON.stringify(playpadToys)} onto playpad`,
-        );
-        playpadToys.forEach((toy) => {
-          moveToyToPad(toy, toy.index, false);
+        const toysOnPad = toybox.filter((toy) => toy.index != -1);
+        console.log(`Need to place ${JSON.stringify(toysOnPad)} onto playpad`);
+
+        toysOnPad.forEach((toy) => {
+          _playpadToys[toy.index] = toy;
+          renderPad(toy.index);
         });
       }
 

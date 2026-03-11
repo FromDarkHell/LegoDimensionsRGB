@@ -226,3 +226,16 @@ class Gateway:
     def get_cid(self):
         self._cid += 1
         return self._cid
+
+    def sniff(self, attempts: int = 50):
+        collections = 0
+        while collections < attempts:
+            try:
+                response = self.dev.read(0x81, Gateway.MAX_LENGTH, timeout=1_000)
+                print(f"{bytes(response).hex()}")
+
+                collections += 1
+            except usb.core.USBError as e:
+                data = None
+                if e.args == ("Operation timed out",):
+                    continue

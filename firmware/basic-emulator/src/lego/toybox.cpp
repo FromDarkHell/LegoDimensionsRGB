@@ -17,17 +17,18 @@ bool Toybox::addToy(const char *name, const int id, const char *type)
         return false;
     }
 
-    // Create the toy object
-    JsonDocument &toy = toys[toyCount];
-    toy["name"] = name;
-    toy["id"] = id;
-    toy["type"] = type;
+    ToyTag resultTag;
+    if (strcmp(type, "vehicle") == 0)
+    {
+        // TODO: Add the upgrades for this
+        resultTag = VehicleTag(id, name);
+    }
+    else if (strcmp(type, "character") == 0)
+    {
+        resultTag = CharacterTag(id, name);
+    }
 
-    // Standard filler-data
-    toy["index"] = "-1";
-    toy["vehicleUpgradesP23"] = 0;
-    toy["vehicleUpgradesP25"] = 0;
-    toy["uid"] = this->generateUID();
+    toys[toyCount] = resultTag;
 
     toyCount++;
     return true;
@@ -37,9 +38,11 @@ bool Toybox::removeToy(const char *uid)
 {
     int index = -1;
 
+    char t_uid[15];
     for (int i = 0; i < toyCount; i++)
     {
-        if (strcmp(toys[i]["uid"], uid) == 0)
+        toys[i].getUIDStr(t_uid);
+        if (strcmp(t_uid, uid) == 0)
         {
             index = i;
             break;
@@ -59,23 +62,25 @@ bool Toybox::removeToy(const char *uid)
     }
 
     // Clear the last toy and decrement count
-    toys[toyCount - 1].clear();
+    // toys[toyCount - 1]
     toyCount--;
     return true;
 }
 
-JsonDocument *Toybox::getToy(size_t index)
+ToyTag *Toybox::getToy(size_t index)
 {
     return &toys[index];
 }
 
-JsonDocument *Toybox::getByUID(const char *uid)
+ToyTag *Toybox::getByUID(const char *uid)
 {
     int index = -1;
 
+    char t_uid[15];
     for (int i = 0; i < toyCount; i++)
     {
-        if (strcmp(toys[i]["uid"], uid) == 0)
+        toys[i].getUIDStr(t_uid);
+        if (strcmp(t_uid, uid) == 0)
         {
             index = i;
             break;
@@ -101,7 +106,9 @@ String Toybox::serialize() const
     for (size_t i = 0; i < toyCount; i++)
     {
         JsonObject toy = toyArray.add<JsonObject>();
-        toy.set(toys[i].as<JsonObjectConst>());
+
+        JsonDocument serialized = toys[i].toJSON();
+        toy.set(serialized.as<JsonObjectConst>());
     }
 
     // Serialize to string
@@ -153,10 +160,10 @@ bool Toybox::deserialize(const char *json)
             break; // Safety check to prevent overflow
         }
 
-        JsonDocument &newToy = toys[toyCount];
+        ToyTag tag;
+        tag.fromJSON(toy);
+        toys[toyCount] = tag;
 
-        // Copy all fields directly, using defaults if missing
-        newToy.set(toy.as<JsonObjectConst>());
         toyCount++;
     }
 
@@ -171,14 +178,14 @@ size_t Toybox::count() const
 void Toybox::clear()
 {
     // Clear all toy documents
-    for (size_t i = 0; i < toyCount; i++)
-    {
-        toys[i].clear();
-    }
+    // for (size_t i = 0; i < toyCount; i++)
+    // {
+    //     toys[i].clear();
+    // }
     toyCount = 0;
 }
 
-bool Toybox::isValidIndex(size_t index) const
+bool Toybox::isValidIndex(int index) const
 {
-    return index >= 0 && index < toyCount;
+    return index >= 0 && (size_t)index < toyCount;
 }

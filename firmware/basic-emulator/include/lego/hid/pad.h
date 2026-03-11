@@ -8,36 +8,32 @@
 // Describes the current display state of a pad — solid, fading, or flashing.
 // Used to track what the pad is currently doing without querying the device.
 // ---------------------------------------------------------------------------
-enum class PadDisplayMode : uint8_t
-{
-    Solid = 0x00,
-    Fade = 0x01,
-    Flash = 0x02,
+enum class PadDisplayMode : uint8_t {
+    SOLID = 0x00,
+    FADE = 0x01,
+    FLASH = 0x02,
 };
 
-struct PadFadeState
-{
+struct PadFadeState {
     PadColor target;
     uint8_t speed;
-    uint8_t count; // 0x00 = infinite
+    uint8_t count;  // 0x00 = infinite
 };
 
-struct PadFlashState
-{
+struct PadFlashState {
     PadColor offColor;
     uint8_t onTime;
     uint8_t offTime;
-    uint8_t count; // 0x00 = infinite
+    uint8_t count;  // 0x00 = infinite
 };
 
-class PlaypadPad
-{
-public:
+class PlaypadPad {
+   public:
     explicit PlaypadPad(PadLocation location)
         : _location(location),
           _color(PadColor::Black()),
           _baseColor(PadColor::Black()),
-          _mode(PadDisplayMode::Solid),
+          _mode(PadDisplayMode::SOLID),
           _fade({}),
           _flash({}) {}
 
@@ -47,77 +43,75 @@ public:
     PadFadeState fadeState() const { return _fade; }
     PadFlashState flashState() const { return _flash; }
 
-    bool isFading() const { return _mode == PadDisplayMode::Fade; }
-    bool isFlashing() const { return _mode == PadDisplayMode::Flash; }
+    bool isFading() const { return _mode == PadDisplayMode::FADE; }
+    bool isFlashing() const { return _mode == PadDisplayMode::FLASH; }
 
     /**
-     * @brief An update/tick function for updating and keeping track of the current pad flashing state.
-     * Useful for changing the pad color
+     * @brief An update/tick function for updating and keeping track of the current pad flashing
+     * state. Useful for changing the pad color
      *
      */
-    void update()
-    {
-        if (_mode == PadDisplayMode::Solid)
+    void update() {
+        if (_mode == PadDisplayMode::SOLID) {
             return;
+        }
 
-        if (millis() - _lastTickMs < _INTERP_RATE)
+        if (millis() - _lastTickMs < _INTERP_RATE) {
             return;
+        }
 
         _lastTickMs = millis();
 
-        switch (_mode)
-        {
-        case PadDisplayMode::Fade:
-        {
-            if (_fade.speed == 0)
-                return;
+        switch (_mode) {
+            case PadDisplayMode::FADE: {
+                if (_fade.speed == 0) {
+                    return;
+                }
 
-            uint16_t halfCycle = _fadeTick / _fade.speed;
-            uint16_t tickInHalf = _fadeTick % _fade.speed;
+                uint16_t halfCycle = _fadeTick / _fade.speed;
+                uint16_t tickInHalf = _fadeTick % _fade.speed;
 
-            // Finished all half-cycles?
-            if (_fade.count != 0 && halfCycle >= _fade.count)
-            {
-                // Even count ends on base, odd count ends on target
-                setColor((_fade.count % 2 == 0) ? _baseColor : _fade.target);
-                return;
+                // Finished all half-cycles?
+                if (_fade.count != 0 && halfCycle >= _fade.count) {
+                    // Even count ends on base, odd count ends on target
+                    setColor((_fade.count % 2 == 0) ? _baseColor : _fade.target);
+                    return;
+                }
+
+                // Even half-cycles go base → target, odd go target → base
+                bool ascending = (halfCycle % 2 == 0);
+                PadColor& from = ascending ? _baseColor : _fade.target;
+                PadColor& to = ascending ? _fade.target : _baseColor;
+
+                float t = (float)tickInHalf / (float)_fade.speed;
+                _color = PadColor::lerpColor(from, to, t);
+
+                _fadeTick++;
+                break;
             }
 
-            // Even half-cycles go base → target, odd go target → base
-            bool ascending = (halfCycle % 2 == 0);
-            PadColor &from = ascending ? _baseColor : _fade.target;
-            PadColor &to = ascending ? _fade.target : _baseColor;
+            case PadDisplayMode::FLASH: {
+                uint16_t cycleLength = _flash.onTime + _flash.offTime;
+                if (cycleLength == 0) {
+                    return;
+                }
 
-            float t = (float)tickInHalf / (float)_fade.speed;
-            _color = PadColor::lerpColor(from, to, t);
+                uint16_t tickInCycle = _flashTick % cycleLength;
+                uint16_t fullCycles = _flashTick / cycleLength;
 
-            _fadeTick++;
-            break;
-        }
+                // Finished all flashes?
+                if (_flash.count != 0 && fullCycles >= _flash.count) {
+                    setColor((_flash.count % 2 == 0) ? _baseColor : _fade.target);
+                    return;
+                }
 
-        case PadDisplayMode::Flash:
-        {
-            uint16_t cycleLength = _flash.onTime + _flash.offTime;
-            if (cycleLength == 0)
-                return;
-
-            uint16_t tickInCycle = _flashTick % cycleLength;
-            uint16_t fullCycles = _flashTick / cycleLength;
-
-            // Finished all flashes?
-            if (_flash.count != 0 && fullCycles >= _flash.count)
-            {
-                setColor((_flash.count % 2 == 0) ? _baseColor : _fade.target);
-                return;
+                _color = (tickInCycle < _flash.onTime) ? _baseColor : _flash.offColor;
+                _flashTick++;
+                break;
             }
 
-            _color = (tickInCycle < _flash.onTime) ? _baseColor : _flash.offColor;
-            _flashTick++;
-            break;
-        }
-
-        default:
-            break;
+            default:
+                break;
         }
     }
 
@@ -129,11 +123,10 @@ public:
      * @param color
      */
 
-    void setColor(PadColor color)
-    {
+    void setColor(PadColor color) {
         _baseColor = color;
         _color = color;
-        _mode = PadDisplayMode::Solid;
+        _mode = PadDisplayMode::SOLID;
         _fade = {};
         _flash = {};
         _fadeTick = 0;
@@ -147,10 +140,9 @@ public:
      * @param speed How long to fade
      * @param count How many times it should fade in/out over the `speed` duration
      */
-    void setFade(PadColor target, uint8_t speed, uint8_t count)
-    {
+    void setFade(PadColor target, uint8_t speed, uint8_t count) {
         _baseColor = _color;
-        _mode = PadDisplayMode::Fade;
+        _mode = PadDisplayMode::FADE;
         _fade = {target, speed, count};
         _flash = {};
         _fadeTick = 0;
@@ -166,13 +158,13 @@ public:
      * @param offColor The RGB color for what color the pad should currently be
      * @param onTime How many ticks (100ms) to show the previous color
      * @param offTime How many ticks (100ms) to show the @see offColor color
-     * @param count How many times the pad should flash from onColor (previous) to offColor. An even number keeps the previous color, and an odd number stays as @see offColor
+     * @param count How many times the pad should flash from onColor (previous) to offColor. An even
+     * number keeps the previous color, and an odd number stays as @see offColor
      */
 
-    void setFlash(PadColor offColor, uint8_t onTime, uint8_t offTime, uint8_t count)
-    {
+    void setFlash(PadColor offColor, uint8_t onTime, uint8_t offTime, uint8_t count) {
         _baseColor = _color;
-        _mode = PadDisplayMode::Flash;
+        _mode = PadDisplayMode::FLASH;
         _flash = {offColor, onTime, offTime, count};
         _fade = {};
         _flashTick = 0;
@@ -183,19 +175,16 @@ public:
      * @brief Turns the pad colors off (black colors)
      *
      */
-    void setOff()
-    {
-        setColor(PadColor::Black());
-    }
+    void setOff() { setColor(PadColor::Black()); }
 
     /**
      * @brief Serializes this Playpad instance into a JSON object describing its current state
      *
-     * @param pad A @see ArduinoJson::V742PB22::JsonObject JSON object to insert the serialization into
+     * @param pad A @see ArduinoJson::V742PB22::JsonObject JSON object to insert the serialization
+     * into
      * @return JsonObject
      */
-    JsonObject toJson(JsonObject &pad) const
-    {
+    JsonObject toJson(JsonObject& pad) const {
         pad["location"] = static_cast<uint8_t>(_location);
         pad["mode"] = static_cast<uint8_t>(_mode);
 
@@ -204,41 +193,38 @@ public:
         color["g"] = _baseColor.g;
         color["b"] = _baseColor.b;
 
-        switch (_mode)
-        {
-        case PadDisplayMode::Fade:
-        {
-            JsonObject fade = pad["fade"].to<JsonObject>();
-            fade["speed"] = _fade.speed;
-            fade["count"] = _fade.count;
+        switch (_mode) {
+            case PadDisplayMode::FADE: {
+                JsonObject fade = pad["fade"].to<JsonObject>();
+                fade["speed"] = _fade.speed;
+                fade["count"] = _fade.count;
 
-            JsonObject target = fade["target"].to<JsonObject>();
-            target["r"] = _fade.target.r;
-            target["g"] = _fade.target.g;
-            target["b"] = _fade.target.b;
-            break;
-        }
-        case PadDisplayMode::Flash:
-        {
-            JsonObject flash = pad["flash"].to<JsonObject>();
-            flash["onTime"] = _flash.onTime;
-            flash["offTime"] = _flash.offTime;
-            flash["count"] = _flash.count;
+                JsonObject target = fade["target"].to<JsonObject>();
+                target["r"] = _fade.target.r;
+                target["g"] = _fade.target.g;
+                target["b"] = _fade.target.b;
+                break;
+            }
+            case PadDisplayMode::FLASH: {
+                JsonObject flash = pad["flash"].to<JsonObject>();
+                flash["onTime"] = _flash.onTime;
+                flash["offTime"] = _flash.offTime;
+                flash["count"] = _flash.count;
 
-            JsonObject offColor = flash["offColor"].to<JsonObject>();
-            offColor["r"] = _flash.offColor.r;
-            offColor["g"] = _flash.offColor.g;
-            offColor["b"] = _flash.offColor.b;
-            break;
-        }
-        default:
-            break;
+                JsonObject offColor = flash["offColor"].to<JsonObject>();
+                offColor["r"] = _flash.offColor.r;
+                offColor["g"] = _flash.offColor.g;
+                offColor["b"] = _flash.offColor.b;
+                break;
+            }
+            default:
+                break;
         }
 
         return pad;
     }
 
-private:
+   private:
     PadLocation _location;
 
     /**
@@ -258,8 +244,8 @@ private:
     PadFlashState _flash;
 
     uint16_t _lastTickMs = 0;
-    uint16_t _fadeTick = 0;  // current tick within the full fade sequence
-    uint16_t _flashTick = 0; // current tick within the full flash sequence
+    uint16_t _fadeTick = 0;   // current tick within the full fade sequence
+    uint16_t _flashTick = 0;  // current tick within the full flash sequence
 
     /**
      * @brief The current tick count for the current effect/mode
@@ -269,7 +255,8 @@ private:
     int16_t _effectTickCount = 0;
 
     /**
-     * @brief A rate specifying how long a "tick" is in milliseconds. This value is basically equivalent to: `(25.5 * 1000) / 255`
+     * @brief A rate specifying how long a "tick" is in milliseconds. This value is basically
+     * equivalent to: `(25.5 * 1000) / 255`
      *
      */
     uint32_t _INTERP_RATE = 100;

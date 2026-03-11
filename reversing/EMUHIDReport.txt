@@ -49,9 +49,9 @@ Manufacturer Info        : Logic3
 Capabilities             : 0x94 (Removable, UniqueID, SurpriseRemovalOK)
 Status                   : 0x0180600A (DN_DRIVER_LOADED, DN_STARTED, DN_DISABLEABLE, DN_REMOVABLE, DN_NT_ENUMERATOR, DN_NT_DRIVER)
 First Install Date       : 2026-02-15 16:47:03
-Last Arrival Date        : 2026-03-09 23:40:09
+Last Arrival Date        : 2026-03-10 01:25:07
 EnhancedPowerMgmtEnabled : 0
-Power State              : D0 (supported: D0, D3, wake from D0)
+Power State              : D0 (supported: D0, D1, D2, D3, wake from D0, wake from D1, wake from D2)
 
         +++++++++++++++++ Registry USB Flags +++++++++++++++++
 HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\usbflags\0E6F02410100
@@ -61,14 +61,14 @@ HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\usbflags\0E6F02410100
 Connection Index         : 0x15 (Port 21)
 Connection Status        : 0x01 (DeviceConnected)
 Current Config Value     : 0x01 (Configuration 1)
-Device Address           : 0x19 (25)
+Device Address           : 0x46 (70)
 Is Hub                   : 0x00 (no)
 Device Bus Speed         : 0x01 (Full-Speed)
 Number of open Pipes     : 0x02 (2 pipes to data endpoints)
 Pipe[0]                  : EndpointID=1  Direction=IN   ScheduleOffset=0  Type=Interrupt  wMaxPacketSize=0x20    bInterval=1   -> 420 Bits/ms = 52500 Bytes/s
 Pipe[1]                  : EndpointID=1  Direction=OUT  ScheduleOffset=0  Type=Interrupt  wMaxPacketSize=0x20    bInterval=1   -> 420 Bits/ms = 52500 Bytes/s
 Data (HexDump)           : 15 00 00 00 12 01 00 02 00 00 00 40 6F 0E 41 02   ...........@o.A.
-                           00 01 01 02 03 01 01 01 00 19 00 02 00 00 00 01   ................
+                           00 01 01 02 03 01 01 01 00 46 00 02 00 00 00 01   .........F......
                            00 00 00 07 05 81 03 20 00 01 00 00 00 00 07 05   ....... ........
                            01 03 20 00 01 00 00 00 00                        .. ......
 
@@ -116,14 +116,14 @@ wTotalLength             : 0x0029 (41 bytes)
 bNumInterfaces           : 0x01 (1 Interface)
 bConfigurationValue      : 0x01 (Configuration 1)
 iConfiguration           : 0x00 (No String Descriptor)
-bmAttributes             : 0x80
+bmAttributes             : 0xA0
  D7: Reserved, set 1     : 0x01
  D6: Self Powered        : 0x00 (no)
- D5: Remote Wakeup       : 0x00 (no)
+ D5: Remote Wakeup       : 0x01 (yes)
  D4..0: Reserved, set 0  : 0x00
 MaxPower                 : 0xFA (500 mA)
-Data (HexDump)           : 09 02 29 00 01 01 00 80 FA 09 04 00 00 02 03 00   ..).............
-                           00 00 09 21 00 01 00 01 22 1D 00 07 05 81 03 20   ...!...."...... 
+Data (HexDump)           : 09 02 29 00 01 01 00 A0 FA 09 04 00 00 02 03 00   ..).............
+                           00 00 09 21 11 01 00 01 22 1D 00 07 05 81 03 20   ...!...."...... 
                            00 01 07 05 01 03 20 00 01                        ...... ..
 
         ---------------- Interface Descriptor -----------------
@@ -141,10 +141,10 @@ Data (HexDump)           : 09 04 00 00 02 03 00 00 00                        ...
         ------------------- HID Descriptor --------------------
 bLength                  : 0x09 (9 bytes)
 bDescriptorType          : 0x21 (HID Descriptor)
-bcdHID                   : 0x0100 (HID Version 1.00)
+bcdHID                   : 0x0111 (HID Version 1.11)
 bCountryCode             : 0x00 (00 = not localized)
 bNumDescriptors          : 0x01
-Data (HexDump)           : 09 21 00 01 00 01 22 1D 00                        .!...."..
+Data (HexDump)           : 09 21 11 01 00 01 22 1D 00                        .!...."..
 Descriptor 1:
 bDescriptorType          : 0x22 (Class=Report)
 wDescriptorLength        : 0x001D (29 bytes)
@@ -170,6 +170,36 @@ Data (HexDump)           : 07 05 01 03 20 00 01                              ...
 
     ----------------- Device Qualifier Descriptor -----------------
 Error                    : ERROR_GEN_FAILURE  (because the device is Full-Speed only)
+
+      ---------- Binary Object Store (BOS) Descriptor -----------
+bLength                  : 0x05 (5 bytes)
+bDescriptorType          : 0x0F (Binary Object Store)
+wTotalLength             : 0x0039 (57 bytes)
+bNumDeviceCaps           : 0x02
+Data (HexDump)           : 05 0F 39 00 02                                    ..9..
+
+        ----------- Platform Capabilities Descriptor -----------
+bLength                  : 0x18 (24 bytes)
+bDescriptorType          : 0x10 (Device Capability Descriptor)
+bDevCapabilityType       : 0x05 (Platform Capabilities)
+bReserved                : 0x00
+PlatformCapabilityUUID   : 3408B638-09A9-47A0-8BFD-A0768815B665
+CapabililityData         : 0
+Data (HexDump)           : 18 10 05 00 38 B6 08 34 A9 09 A0 47 8B FD A0 76   ....8..4...G...v
+                           88 15 B6 65 00 01 01 01                           ...e....
+
+        ----------- Platform Capabilities Descriptor -----------
+bLength                  : 0x1C (28 bytes)
+bDescriptorType          : 0x10 (Device Capability Descriptor)
+bDevCapabilityType       : 0x05 (Platform Capabilities)
+bReserved                : 0x00
+PlatformCapabilityUUID   : D8DD60DF-4589-4CC7-9CD2-659D9E648A9F (GUID_USB_MSOS20_PLATFORM_CAPABILITY_ID)
+dwWindowsVersion         : 0x06030000 (Windows V6.3 and higher)
+wMSOSDescSetTotalLength  : 0x00B2 (178 Bytes)
+bMS_VendorCode           : 0x02 (2)
+bAltEnumCode             : 0x00 (0)
+Data (HexDump)           : 1C 10 05 00 DF 60 DD D8 89 45 C7 4C 9C D2 65 9D   .....`...E.L..e.
+                           9E 64 8A 9F 00 00 03 06 B2 00 02 00               .d..........
 
       -------------------- String Descriptors -------------------
              ------ String Descriptor 0 ------

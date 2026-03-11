@@ -6,7 +6,7 @@ from gateway import Gateway
 def main():
     gateway = Gateway()
 
-    if False:
+    if True:
         gateway.switch_pad(0, (255, 0, 255))
     elif False:
         gateway.flash_pads(
@@ -34,6 +34,8 @@ def main():
                 (25, 5, (0, 0, 255)),  # Right Pad = Stays Blue
             ]
         )
+
+    gateway.sniff()
 
 
 if __name__ == "__main__":

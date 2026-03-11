@@ -13,10 +13,9 @@
 #include "fs/fs.h"
 #include "log/logger.h"
 
-class CaptivePortal
-{
-public:
-    CaptivePortal(const char *, const char *);
+class CaptivePortal {
+   public:
+    CaptivePortal(const char*, const char*);
     ~CaptivePortal();
 
     void initialize();
@@ -24,19 +23,19 @@ public:
 
     bool credentialsSaved = false;
 
-protected:
+   protected:
     void start_soft_ap();
     void start_dns();
     void start_web();
 
-    const char *ssid;
-    const char *password;
+    const char* ssid;
+    const char* password;
 
-    const char *html = nullptr;
-    const char *css = nullptr;
+    const char* html = nullptr;
+    const char* css = nullptr;
 
-    DNSServer *dnsServer = nullptr;
-    AsyncWebServer *server = nullptr;
+    DNSServer* dnsServer = nullptr;
+    AsyncWebServer* server = nullptr;
 
     /// @brief IP Address to the web server, Samsung requires the IP to be in public space
     const IPAddress accessPointIP = IPAddress(192, 168, 4, 1);

@@ -6,12 +6,12 @@
 #include "util/reader.h"
 
 /**
- * @brief A C++ implementation of the [Tiny Encryption Algorithm](https://en.wikipedia.org/wiki/Tiny_Encryption_Algorithm).
+ * @brief A C++ implementation of the [Tiny Encryption
+ * Algorithm](https://en.wikipedia.org/wiki/Tiny_Encryption_Algorithm).
  *
  */
-class TEA
-{
-public:
+class TEA {
+   public:
     TEA() {}
 
     /**
@@ -19,7 +19,7 @@ public:
      *
      * @param key A key for encryption (16 bytes long)
      */
-    void setKey(const uint8_t *key);
+    void setKey(const uint8_t* key);
 
     /**
      * @brief Encrypts 8 bytes in-place (optionally, send to an output buffer)
@@ -29,7 +29,7 @@ public:
      * @return true if encryption succeed
      * @return false if key has not been set
      */
-    bool encrypt(const uint8_t *input, uint8_t *output);
+    bool encrypt(const uint8_t* input, uint8_t* output);
 
     /**
      * @brief Decrypts 8 bytes in-place (optionally, send to an output buffer)
@@ -39,9 +39,9 @@ public:
      * @return true if decryption succeed
      * @return false if key has not been set
      */
-    bool decrypt(const uint8_t *input, uint8_t *output);
+    bool decrypt(const uint8_t* input, uint8_t* output);
 
-private:
+   private:
     uint8_t _key[16];
     bool _keySet = false;
 

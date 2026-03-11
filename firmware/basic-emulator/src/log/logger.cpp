@@ -2,8 +2,7 @@
 
 Logger logger;
 
-void Logger::begin()
-{
+void Logger::begin() {
     // USB serial - always init this first
     Serial.begin(BAUD_RATE);
 
@@ -11,8 +10,7 @@ void Logger::begin()
     LOG_UART.begin(BAUD_RATE);
 }
 
-void Logger::log(const char *level, const char *fmt, va_list args)
-{
+void Logger::log(const char* level, const char* fmt, va_list args) {
     char buffer[256];
     unsigned long now = millis();
     int n = snprintf(buffer, sizeof(buffer), "[%s][%lu ms] ", level, now);
@@ -23,10 +21,8 @@ void Logger::log(const char *level, const char *fmt, va_list args)
     appendToLogBuffer(buffer);
 }
 
-void Logger::blinkStatus(int count, int interval_ms)
-{
-    for (int i = 0; i < count; i++)
-    {
+void Logger::blinkStatus(int count, int interval_ms) {
+    for (int i = 0; i < count; i++) {
         digitalWrite(LED_BUILTIN, HIGH);
         delay(interval_ms);
         digitalWrite(LED_BUILTIN, LOW);
@@ -34,16 +30,13 @@ void Logger::blinkStatus(int count, int interval_ms)
     }
 }
 
-void Logger::appendToLogBuffer(const char *msg)
-{
+void Logger::appendToLogBuffer(const char* msg) {
     size_t msgLen = strlen(msg);
-    if (msgLen >= LOG_BUFFER_SIZE)
-    {
+    if (msgLen >= LOG_BUFFER_SIZE) {
         msg += (msgLen - LOG_BUFFER_SIZE + 1);
         msgLen = strlen(msg);
     }
-    if (logBufferPos + msgLen >= LOG_BUFFER_SIZE)
-    {
+    if (logBufferPos + msgLen >= LOG_BUFFER_SIZE) {
         size_t overflow = (logBufferPos + msgLen) - LOG_BUFFER_SIZE + 1;
         memmove(logBuffer, logBuffer + overflow, logBufferPos - overflow);
         logBufferPos -= overflow;
@@ -53,33 +46,33 @@ void Logger::appendToLogBuffer(const char *msg)
     logBuffer[logBufferPos] = '\0';
 }
 
-void Logger::sendLogOutput(const char *msg)
-{
-    Serial.print(msg);   // USB CDC
-    LOG_UART.print(msg); // Hardware UART
+void Logger::sendLogOutput(const char* msg) {
+    Serial.print(msg);    // USB CDC
+    LOG_UART.print(msg);  // Hardware UART
 }
 
-void log_init() { logger.begin(); }
-const char *log_get() { return logger.getBuffer(); }
+void log_init() {
+    logger.begin();
+}
+const char* log_get() {
+    return logger.getBuffer();
+}
 
-void log_dbg(const char *fmt, ...)
-{
+void log_dbg(const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
     logger.log("DEBUG", fmt, args);
     va_end(args);
 }
 
-void log_warn(const char *fmt, ...)
-{
+void log_warn(const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
     logger.log("WARN", fmt, args);
     va_end(args);
 }
 
-void log_err(const char *fmt, ...)
-{
+void log_err(const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
     logger.log("ERROR", fmt, args);
