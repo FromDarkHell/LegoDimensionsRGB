@@ -1,5 +1,6 @@
 import array
 import platform
+import time
 from typing import List, Optional, Tuple
 import usb.core
 
@@ -7,43 +8,7 @@ import usb.core
 class Gateway:
     """Represents a Lego Dimensions gateway/portal peripheral"""
 
-    # STARTUP_PACKET = array.array(
-    #     "B",
-    #     [
-    #         0x55,
-    #         0x0F,
-    #         0xB0,
-    #         0x01,
-    #         0x28,
-    #         0x63,
-    #         0x29,
-    #         0x20,
-    #         0x4C,
-    #         0x45,
-    #         0x47,
-    #         0x4F,
-    #         0x20,
-    #         0x32,
-    #         0x30,
-    #         0x31,
-    #         0x34,
-    #         0xF7,
-    #         0x00,
-    #         0x00,
-    #         0x00,
-    #         0x00,
-    #         0x00,
-    #         0x00,
-    #         0x00,
-    #         0x00,
-    #         0x00,
-    #         0x00,
-    #         0x00,
-    #         0x00,
-    #         0x00,
-    #         0x00,
-    #     ],
-    # )
+    ZONE_MAP = {0x1: "center", 0x2: "left", 0x3: "right"}
 
     VENDOR_ID = 0x0E6F
     PRODUCT_ID = 0x0241
@@ -227,12 +192,18 @@ class Gateway:
         self._cid += 1
         return self._cid
 
+    # def get_taglist(self):
+    #     self._send_command([0xD0, self.get_cid()])
+
+    def fade_random(self, speed: int, cycles: int):
+        self._send_command([0xC4, self.get_cid(), speed, cycles])
+
     def sniff(self, attempts: int = 50):
         collections = 0
         while collections < attempts:
             try:
                 response = self.dev.read(0x81, Gateway.MAX_LENGTH, timeout=1_000)
-                print(f"{bytes(response).hex()}")
+                print(f"[{time.time()}]: {bytes(response).hex()}")
 
                 collections += 1
             except usb.core.USBError as e:

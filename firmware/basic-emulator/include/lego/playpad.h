@@ -31,11 +31,11 @@ static const uint8_t desc_hid_report[] = {
     0x26, 0xFF, 0x00,  //   Logical Maximum (255)
     0x75, 0x08,        //   Report Size (8)
     0x95, 0x20,        //   Report Count (32)
-    0x81, 0x00,        //   Input  (Array) — device → host
+    0x81, 0x00,        //   Input  (Array)
 
     0x19, 0x01,  //   Usage Minimum (1)
     0x29, 0x20,  //   Usage Maximum (32)
-    0x91, 0x00,  //   Output (Array) — host → device
+    0x91, 0x00,  //   Output (Array)
 
     0xC0  // End Collection
 };
@@ -92,13 +92,22 @@ class PlayPad {
 
     /**
      * @brief Fires the appropriate HID tag-event toward the game.
-     *        If padIndex == TagPadLocation::Unplaced the tag is treated as
+     *        If padIndex == TagIndex::Unplaced the tag is treated as
      *        removed; any other valid pad location fires a placement event.
      *
      * @param tag  The tag that was placed or lifted. padIndex must already
      *             reflect the new location before this is called.
      */
-    void tagChangeEvent(ToyTag* placedTag, TagPadLocation lastLocation);
+    void tagChangeEvent(ToyTag* placedTag, TagIndex lastLocation);
+
+    /**
+     * @brief Registers a callback that fires whenever any pad's display state
+     *        changes (color, fade, flash).
+     *
+     * @param cb  Called with a pre-serialized JSON string of the full pad state.
+     *            Invoked from the main loop (update()), never from a USB callback.
+     */
+    void onPadStateChange(std::function<void(const String&)> cb) { _padStateCallback = cb; }
 
    private:
     /**
@@ -193,6 +202,9 @@ class PlayPad {
     void _handleFade(const CommandPacket& packet);
     void _handleFadeAll(const CommandPacket& packet);
 
+    void _handleGetColor(const CommandPacket& packet);
+
+    void _handleTagList(const CommandPacket& packet);
     void _handleRead(const CommandPacket& packet);
     void _handleModel(const CommandPacket& packet);
 
@@ -212,6 +224,15 @@ class PlayPad {
 
     EventQueue _eventQueue;
 
+    std::function<void(const String&)> _padStateCallback = nullptr;
+
+    /**
+     * @brief An internal function used for updating the pad state after any major change
+     * (colors/etc)
+     *
+     */
+    void _notifyPadStateChange();
+
     /**
      * @brief A static pointer to the single instance of the PlayPad class. This is used in the
      * static callback functions to access the instance's member variables and functions, since the
@@ -225,9 +246,9 @@ class PlayPad {
      *
      */
     struct PlacedToken {
-        uint8_t index;               // the index value sent in HID events
-        TagPadLocation padLocation;  // pad number 1-3
-        ToyTag* tag;                 // non-owning pointer
+        uint8_t index;         // the index value sent in HID events
+        TagIndex padLocation;  // pad number 1-3
+        ToyTag* tag;           // non-owning pointer
     };
 
     static constexpr uint8_t MAX_TOKENS = 7;
@@ -289,17 +310,17 @@ class PlayPad {
         return nullptr;
     }
 
-    static PadLocation padSectionFromLocation(TagPadLocation loc) {
+    static PadLocation padSectionFromLocation(TagIndex loc) {
         switch (loc) {
-            case TagPadLocation::TopLeft:
-            case TagPadLocation::BottomLeft:
-            case TagPadLocation::CenterLeft:
+            case TagIndex::TopLeft:
+            case TagIndex::BottomLeft:
+            case TagIndex::CenterLeft:
                 return PadLocation::LEFT;
-            case TagPadLocation::Middle:
+            case TagIndex::Middle:
                 return PadLocation::CENTER;
-            case TagPadLocation::TopRight:
-            case TagPadLocation::BottomRight:
-            case TagPadLocation::CenterRight:
+            case TagIndex::TopRight:
+            case TagIndex::BottomRight:
+            case TagIndex::CenterRight:
                 return PadLocation::RIGHT;
             default:
                 return PadLocation::ALL;  // sentinel for "unknown"

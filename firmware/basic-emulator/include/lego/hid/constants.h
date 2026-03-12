@@ -29,25 +29,51 @@ enum class GatewayCommand : uint8_t {
     // is correct, in addition to the encryption.
     CHALLENGE = 0xB3,
 
+    // Sets the current color of the specifically indexed pad
     COL = 0xC0,
-    GETCOL = 0xC1,  // TODO: Needs implemented
+    // Gets the current color of the specific pad
+    GETCOL = 0xC1,
+    // Fades the specific pad to a specific color over x amount of ticks and cycles it y amount of
+    // times
     FADE = 0xC2,
+    // Flashes the specific pad back and forth from a specific color over x amount of ticks and
+    // cycles it y amount of times
     FLASH = 0xC3,
 
-    FADRD = 0xC4,
+    FADRD = 0xC4,  // TODO: Needs implemented
+
+    // Fades all pads in a single command to a specific color over x amount of ticks and cycles it y
+    // amount of times
     FADAL = 0xC6,
+    // Flashes all pads in a single command to a specific color over x amount of ticks and cycles it
+    // y amount of times
+
     FLSAL = 0xC7,
+    // Colors all pads in a single command to a specific color
+
     COLAL = 0xC8,
 
-    TGLST = 0xD0,  // TODO: Needs implemented
+    // Returns an array of bitfields of all of the current tag locations and their indexes
+    TGLST = 0xD0,
+
+    // Reads NFC data from the NFCTag
     READ = 0xD2,
+    // Writes NFC data onto the NFC tag
     WRITE = 0xD3,
+    // The MODEL command gets extra info (IDs) from the specific NFC tag at a given index
     MODEL = 0xD4,
 
-    PWD = 0xE1,     // TODO: Needs implemented
+    // The playpad itself automatically sets/changes the PWD for a given NFC tag.
+    // This command lets you turn on/off the PWD.
+    // See: https://github.com/AlinaNova21/node-ld/blob/master/src/lib/ToyPad.js
+    PWD = 0xE1,
+
+    // This command lets you turn on/off all NFC operations until another read/write/active command
+    // is called
     ACTIVE = 0xE5,  // TODO: Needs implemented
 
-    LEDSEQ = 0xFF,  // TODO: Needs implemented
+    // ???
+    LEDSEQ = 0xFF,
 };
 
 /**

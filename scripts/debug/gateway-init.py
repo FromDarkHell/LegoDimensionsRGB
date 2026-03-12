@@ -1,4 +1,5 @@
 import argparse
+import threading
 import time
 from gateway import Gateway
 
@@ -6,7 +7,7 @@ from gateway import Gateway
 def main():
     gateway = Gateway()
 
-    if True:
+    if False:
         gateway.switch_pad(0, (255, 0, 255))
     elif False:
         gateway.flash_pads(
@@ -35,6 +36,7 @@ def main():
             ]
         )
 
+    gateway.fade_random(50, 2)
     gateway.sniff()
 
 

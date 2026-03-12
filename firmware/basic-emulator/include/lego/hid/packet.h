@@ -12,9 +12,11 @@ enum class PacketValidationError : uint8_t {
     CHECKSUM = 0x04
 };
 
-// ---------------------------------------------------------------------------
-// Base packet - owns the raw buffer and provides shared accessors/validation
-// ---------------------------------------------------------------------------
+/**
+ * @brief BasePacket is for all other packet types to implement, it holds an instance for both the
+ * command type, as well as payload info, encryption, and checksumming.
+ *
+ */
 struct BasePacket {
     uint8_t data[PLAYPAD_MAX_PACKET_SIZE];
 
@@ -103,9 +105,13 @@ struct BasePacket {
     ~BasePacket() = default;
 };
 
-// ---------------------------------------------------------------------------
-// Command packet  [type][length][cmd][cid][...payload][checksum]
-// ---------------------------------------------------------------------------
+/**
+ * @brief A command packet comes from the game to tell the playpad to do something specific. A
+ * response packet will (usually) be sent in return. Each command comes with a Command ID (`cid`),
+ * which is used to tell the game that the playpad is responding to a specific command.
+ *
+ * The data is laid out like so: `[type][length][cmd][cid][...payload][checksum]`
+ */
 struct CommandPacket : BasePacket {
     uint8_t cid() const { return data[3]; }
     const uint8_t* payload() const { return &data[4]; }
@@ -134,9 +140,13 @@ struct CommandPacket : BasePacket {
     }
 };
 
-// ---------------------------------------------------------------------------
-// Event packet  [type][length][cmd][...payload][checksum]  (no cid field)
-// ---------------------------------------------------------------------------
+/**
+ * @brief An event packet is a simple wrapper around the BasePacket, used for when the playpad has
+ * an update (i.e. an NFC tag has been placed). Unlike `CommandPacket`, an EventPacket doesn't have
+ * a `cid`.
+ *
+ * The packet is laid out like so: `[type][length][cmd][...payload][checksum]`
+ */
 struct EventPacket : BasePacket {
     const uint8_t* payload() const { return &data[3]; }
     uint8_t payloadSize() const { return length() > 1 ? length() - 1 : 0; }
@@ -144,9 +154,15 @@ struct EventPacket : BasePacket {
     PacketValidationError isValid() const { return BasePacket::isValid(PacketType::EVENT); }
 };
 
-// ---------------------------------------------------------------------------
-// Response packet  [type][length][cid][...payload][checksum]
-// ---------------------------------------------------------------------------
+/**
+ * @brief A response packet is a response send from the playpad back to the console, in order to
+ * tell the game specific info about a given command
+ *
+ * This is laid out similarly to the CommandPacket, but it doesn't need a command type since it is a
+ * response to a given packet that was sent.
+ *
+ * For example: `[type][length][cid][...payload][checksum]`
+ */
 struct ResponsePacket : BasePacket {
     uint8_t cid() const { return data[2]; }
     const uint8_t* payload() const override { return &data[3]; }
@@ -156,6 +172,14 @@ struct ResponsePacket : BasePacket {
         return BasePacket::isValid(PacketType::COMMAND);  // 0x55 for both cmd and response
     }
 
+    /**
+     * @brief Crafts a base ResponsePacket with a given CID and payload
+     *
+     * @param cid The originating command's `cid` value to use as an ID for this response.
+     * @param payload The payload data to return, defaults to nullptr/blank.
+     * @param payloadLen The length of the payload data to return
+     * @return ResponsePacket A fully serialized, checksummed, ResponsePacket.
+     */
     static ResponsePacket build(uint8_t cid,
                                 const uint8_t* payload = nullptr,
                                 uint8_t payloadLen = 0) {
@@ -174,6 +198,12 @@ struct ResponsePacket : BasePacket {
         return pkt;
     }
 
+    /**
+     * @brief Crafts a blank (payload-less) ResponsePacket using a given `cid`.
+     *
+     * @param cid The originating command's `cid` value to use as an ID for this response.
+     * @return ResponsePacket A fully serialized, checksummed, ResponsePacket.
+     */
     static ResponsePacket blank(uint8_t cid) {
         ResponsePacket pkt;
         pkt.data[0] = static_cast<uint8_t>(PacketType::COMMAND);

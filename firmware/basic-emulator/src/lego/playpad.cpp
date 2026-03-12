@@ -136,19 +136,23 @@ void PlayPad::_registerHandlers() {
     _commandHandlers[GatewayCommand::FADE] = [this](const CommandPacket& p) { _handleFade(p); };
     _commandHandlers[GatewayCommand::FADAL] = [this](const CommandPacket& p) { _handleFadeAll(p); };
 
+    _commandHandlers[GatewayCommand::GETCOL] = [this](const CommandPacket& p) {
+        _handleGetColor(p);
+    };
+    _commandHandlers[GatewayCommand::TGLST] = [this](const CommandPacket& p) { _handleTagList(p); };
+
     _commandHandlers[GatewayCommand::READ] = [this](const CommandPacket& p) { _handleRead(p); };
     _commandHandlers[GatewayCommand::MODEL] = [this](const CommandPacket& p) { _handleModel(p); };
     _commandHandlers[GatewayCommand::WRITE] = [this](const CommandPacket& p) { _handleWrite(p); };
 }
 
-void PlayPad::tagChangeEvent(ToyTag* placedTag, TagPadLocation lastLocation) {
+void PlayPad::tagChangeEvent(ToyTag* placedTag, TagIndex lastLocation) {
     uint8_t uid[8];
     placedTag->getUID(uid);
 
     TagEventPacket::TagMovementDirection direction = TagEventPacket::TagMovementDirection::PLACED;
-    TagPadLocation padIndex = placedTag->padIndex;
-    if (placedTag->padIndex == TagPadLocation::Unplaced
-        && lastLocation != TagPadLocation::Unplaced) {
+    TagIndex padIndex = placedTag->padIndex;
+    if (placedTag->padIndex == TagIndex::Unplaced && lastLocation != TagIndex::Unplaced) {
         direction = TagEventPacket::TagMovementDirection::REMOVED;
         padIndex = lastLocation;
     }
@@ -176,8 +180,7 @@ void PlayPad::tagChangeEvent(ToyTag* placedTag, TagPadLocation lastLocation) {
 
         _freeIndex(pt->index);
         *pt = _placedTokens[--_placedCount];  // swap-evict
-    } else                                    // PLACED
-    {
+    } else {
         PlacedToken* existing = _findToken(placedTag);
 
         if (existing != nullptr) {
@@ -252,6 +255,33 @@ void PlayPad::tagChangeEvent(ToyTag* placedTag, TagPadLocation lastLocation) {
     }
 }
 
+void PlayPad::_notifyPadStateChange() {
+    if (!_padStateCallback) {
+        return;
+    }
+
+    // Re-use the same serialization the GET /playpad endpoint uses
+    JsonDocument doc;
+
+    static constexpr struct {
+        const char* key;
+        PadLocation loc;
+    } ENTRIES[] = {
+        {"left", PadLocation::LEFT},
+        {"center", PadLocation::CENTER},
+        {"right", PadLocation::RIGHT},
+    };
+
+    for (const auto& e : ENTRIES) {
+        JsonObject obj = doc[e.key].to<JsonObject>();
+        getPad(e.loc)->toJson(obj);
+    }
+
+    String json;
+    serializeJson(doc, json);
+    _padStateCallback(json);
+}
+
 void PlayPad::_handleWake(const CommandPacket& packet) {
     log_dbg("[PlayPad] WAKE command received. Payload: %s", packet.payloadToHexString());
 
@@ -299,6 +329,8 @@ void PlayPad::_handleCol(const CommandPacket& packet) {
 
     ResponsePacket blank = ResponsePacket::blank(packet.cid());
     sendPacket(blank);
+
+    _notifyPadStateChange();
 }
 
 void PlayPad::_handleColAll(const CommandPacket& packet) {
@@ -315,6 +347,8 @@ void PlayPad::_handleColAll(const CommandPacket& packet) {
 
     ResponsePacket blank = ResponsePacket::blank(packet.cid());
     sendPacket(blank);
+
+    _notifyPadStateChange();
 }
 
 void PlayPad::_handleFlash(const CommandPacket& packet) {
@@ -334,6 +368,8 @@ void PlayPad::_handleFlash(const CommandPacket& packet) {
 
     ResponsePacket blank = ResponsePacket::blank(packet.cid());
     sendPacket(blank);
+
+    _notifyPadStateChange();
 }
 
 void PlayPad::_handleFlashAll(const CommandPacket& packet) {
@@ -357,6 +393,8 @@ void PlayPad::_handleFlashAll(const CommandPacket& packet) {
 
     ResponsePacket blank = ResponsePacket::blank(packet.cid());
     sendPacket(blank);
+
+    _notifyPadStateChange();
 }
 
 void PlayPad::_handleFade(const CommandPacket& packet) {
@@ -377,6 +415,8 @@ void PlayPad::_handleFade(const CommandPacket& packet) {
 
     ResponsePacket blank = ResponsePacket::blank(packet.cid());
     sendPacket(blank);
+
+    _notifyPadStateChange();
 }
 
 void PlayPad::_handleFadeAll(const CommandPacket& packet) {
@@ -400,6 +440,31 @@ void PlayPad::_handleFadeAll(const CommandPacket& packet) {
 
     ResponsePacket blank = ResponsePacket::blank(packet.cid());
     sendPacket(blank);
+
+    _notifyPadStateChange();
+}
+
+void PlayPad::_handleGetColor(const CommandPacket& packet) {
+    const PadLocation colorToGet = GetColorPacket::fromCommand(packet);
+
+    log_dbg("[PlayPad] Getting color for pad %d", colorToGet);
+    ResponsePacket response = GetColorPacket::buildResponse(
+        packet.cid(), PADS[static_cast<uint8_t>(colorToGet) - 1].color());
+
+    sendPacket(response);
+}
+
+void PlayPad::_handleTagList(const CommandPacket& packet) {
+    TagListPacket::TagEntry tagEntries[MAX_TOKENS]{};
+
+    for (uint8_t i = 0; i < _placedCount; i++) {
+        PlacedToken* tag = &_placedTokens[i];
+        tagEntries[i] = {tag->index, padSectionFromLocation(tag->padLocation)};
+    }
+
+    ResponsePacket response = TagListPacket::buildResponse(packet.cid(), tagEntries, _placedCount);
+    log_dbg("[PlayPad] TGLST Response");
+    sendPacket(response);
 }
 
 void PlayPad::_handleRead(const CommandPacket& packet) {

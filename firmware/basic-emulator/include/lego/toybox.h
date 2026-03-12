@@ -3,19 +3,24 @@
 #include <ArduinoJson.h>
 #include "lego/tag.h"
 
-class Toybox
-{
-public:
+/**
+ * @brief A Toybox is used to store and keep track of all of the available ToyTag instances that can
+ * be placed onto the Playpad.
+ *
+ * A Toybox instance can additionally be deserialized/serialized to/from JSON for persistence.
+ */
+class Toybox {
+   public:
     Toybox();
 
-    bool addToy(const char *name, const int id, const char *type);
-    bool removeToy(const char *uid);
+    bool addToy(const char* name, const int id, const char* type);
+    bool removeToy(const char* uid);
 
-    ToyTag *getToy(size_t index);
-    ToyTag *getByUID(const char *uid);
+    ToyTag* getToy(size_t index);
+    ToyTag* getByUID(const char* uid);
 
     String serialize() const;
-    bool deserialize(const char *json);
+    bool deserialize(const char* json);
 
     size_t count() const;
 
@@ -25,10 +30,10 @@ public:
     // Check if a toy exists at the given index
     bool isValidIndex(int index) const;
 
-private:
-    static const size_t MAX_TOYS = 255;       // Maximum number of toys
-    static const size_t JSON_BUFFER_SIZE = 8; // Buffer size for JSON operations
+   private:
+    static const size_t MAX_TOYS = 255;        // Maximum number of toys
+    static const size_t JSON_BUFFER_SIZE = 8;  // Buffer size for JSON operations
 
-    ToyTag toys[MAX_TOYS]; // Array to store toy objects
-    size_t toyCount;       // Current number of toys
+    ToyTag toys[MAX_TOYS];  // Array to store toy objects
+    size_t toyCount;        // Current number of toys
 };

@@ -5,6 +5,7 @@
 
 #include <Arduino.h>
 
+#include <AsyncWebSocket.h>
 #include <ESPAsyncWebServer.h>
 #include <WiFi.h>
 
@@ -43,6 +44,8 @@ class LegoServer {
     const char* css = nullptr;
 
     AsyncWebServer* server = nullptr;
+    AsyncWebSocket ws{"/ws"};
+
     Toybox* toybox = nullptr;
     PlayPad* playpad = nullptr;
 };

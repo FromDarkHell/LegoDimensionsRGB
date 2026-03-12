@@ -518,22 +518,12 @@
       }
 
       let lastZones = {};
-      let isFetching = false;
 
       function zonesEqual(a, b) {
         return JSON.stringify(a) === JSON.stringify(b);
       }
 
-      async function updatePadColors() {
-        if (isFetching) return;
-
-        isFetching = true;
-        const res = await fetch("/playpad");
-        isFetching = false;
-
-        if (!res.ok) return;
-        const data = await res.json();
-
+      function handlePadState(data) {
         for (const zone of Object.values(data)) {
           const padId = LOCATION_TO_PAD_ID[zone.location];
           if (padId === undefined) continue;
@@ -545,9 +535,36 @@
         }
       }
 
-      // Initial fetch + poll every 1s
-      updatePadColors();
-      setInterval(updatePadColors, 1_000);
+      let _ws = null;
+      function connectWS() {
+        const url = `ws://${location.host}/ws`;
+        _ws = new WebSocket(url);
+
+        _ws.onopen = () => {
+          console.log("[WS] Connected to pad state stream");
+        };
+
+        _ws.onmessage = (evt) => {
+          try {
+            const data = JSON.parse(evt.data);
+            handlePadState(data);
+          } catch (e) {
+            console.error("[WS] Bad message:", e);
+          }
+        };
+
+        _ws.onclose = () => {
+          console.warn("[WS] Disconnected - reconnecting in 2s");
+          setTimeout(connectWS, 2000);
+        };
+
+        _ws.onerror = (e) => {
+          console.error("[WS] Error:", e);
+          _ws.close();
+        };
+      }
+
+      connectWS();
     })();
   </script>
 

@@ -4,22 +4,30 @@
 #include <ArduinoJson.h>
 #include "lego/hid/constants.h"
 
-// ---------------------------------------------------------------------------
-// Describes the current display state of a pad — solid, fading, or flashing.
-// Used to track what the pad is currently doing without querying the device.
-// ---------------------------------------------------------------------------
+/**
+ * @brief Describes the current state of a pad (solid/fading/flashing)
+ *
+ */
 enum class PadDisplayMode : uint8_t {
     SOLID = 0x00,
     FADE = 0x01,
     FLASH = 0x02,
 };
 
+/**
+ * @brief A struct defining the current fading state of a given pad
+ *
+ */
 struct PadFadeState {
     PadColor target;
     uint8_t speed;
     uint8_t count;  // 0x00 = infinite
 };
 
+/**
+ * @brief A struct defining the current flash state of a given pad
+ *
+ */
 struct PadFlashState {
     PadColor offColor;
     uint8_t onTime;
@@ -27,6 +35,11 @@ struct PadFlashState {
     uint8_t count;  // 0x00 = infinite
 };
 
+/**
+ * @brief A PlaypadPad is a specific location of a playpad. It consists of LEDs, as well as a
+ * location. The LEDs can be controlled as fading/flashing or a solid color.
+ *
+ */
 class PlaypadPad {
    public:
     explicit PlaypadPad(PadLocation location)
@@ -115,14 +128,11 @@ class PlaypadPad {
         }
     }
 
-    // --- State setters - call these after receiving the corresponding packet -
-
     /**
      * @brief Update the current color state to a fixed color
      *
      * @param color
      */
-
     void setColor(PadColor color) {
         _baseColor = color;
         _color = color;
@@ -148,9 +158,6 @@ class PlaypadPad {
         _fadeTick = 0;
         _lastTickMs = millis();
     }
-
-    // onTime/offTime: ticks at each state
-    // count:          number of flashes (0x00 = infinite)
 
     /**
      * @brief Changes the pad colors to start flashing

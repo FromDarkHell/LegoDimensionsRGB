@@ -28,7 +28,7 @@ class EventQueue {
      */
     bool push(const EventPacket& packet) {
         if (_count >= MAX_EVENTS) {
-            log_warn("[EventQueue] Queue full — dropping event packet");
+            log_warn("[EventQueue] Queue full - dropping event packet");
             return false;
         }
 
@@ -51,8 +51,7 @@ class EventQueue {
      *        since the last dispatch, then calls the provided send function.
      *
      * @param sendFn  Callable that accepts a reference to a BasePacket and
-     *                forwards it to the HID transport, e.g.:
-     *                  [this](BasePacket &p){ sendPacket(p); }
+     *                forwards it to the HID transport
      */
     template <typename SendFn>
     void update(SendFn sendFn) {

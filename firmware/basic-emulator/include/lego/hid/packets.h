@@ -58,8 +58,8 @@ struct SeedPacket : CommandPacket {
  * @brief A CHALLENGE packet is used to help authenticate that this pad is a "legal" playpad.
  * The packet payload comes encrypted through TEA, & needs to be decrypted. Afterwards, it includes
  * a uint32 `conf` key. The seeded RNG will generate a random number, and send it back as a
- * response. This proves both the PRNG is implemented correctly, as well as TEA So it *obviously*
- * has to be an official playpad...
+ * response. This proves both the PRNG is implemented correctly, as well as TEA.
+ * So it *obviously* has to be an official playpad...
  *
  */
 struct ChallengePacket : CommandPacket {
@@ -318,52 +318,21 @@ struct FadeAllPacket : CommandPacket {
     }
 };
 
-/*===========================
-======= Event Packets =======
-=============================*/
-
 /**
- * @brief A TagEventPacket is used to send info about when a tag moves on/off of the playpad.
+ * @brief A GETCOL packet is used by the game to get the color of aspecific playpad
  *
  */
-struct TagEventPacket : EventPacket {
-    // Tag Placed:        `56 0b 02 00 00 00 04c834eafb7380 3b000000000000000000000000000000000000`
-    // Tag Removed:       `56 0b 02 00 00 01 04c834eafb7380 3c000000000000000000000000000000000000`
+struct GetColorPacket : CommandPacket {
+    static PadLocation fromCommand(const CommandPacket& packet) {
+        const uint8_t* decrypted = packet.payload();
 
-    // Artifical Example: `56 0b 03 00 01 00 04c834eafb73803d000000000000000000000000000000000000`
+        return static_cast<PadLocation>(decrypted[0]);
+    }
 
-    // Tag Placed:  `56 0b 02 00 01 00 04c835eafb7380 3d000000000000000000000000000000000000`
+    static ResponsePacket buildResponse(uint8_t cid, PadColor padColor) {
+        uint8_t payload[3]{padColor.r, padColor.g, padColor.b};
 
-    // 0x56: Event
-    // 0x0B: Length
-    // 0x02: Current Pad (Left)
-    // 0x00: Always 0x00 (???)
-    // 0x00: Index (+1 for every tag placed on the pad)
-    // 0x00 (0x01): Direction
-
-    // 04c834eafb7380: UID
-    // 0x3B: Checksum
-
-    enum TagMovementDirection : uint8_t { PLACED = 0x00, REMOVED = 0x01 };
-
-    enum InternalTagPadLocation : uint8_t { CENTER = 0x01, LEFT = 0x02, RIGHT = 0x03 };
-
-    static EventPacket build(PadLocation currentPad,
-                             uint8_t index,
-                             TagMovementDirection direction,
-                             const uint8_t* uid) {
-        EventPacket pkt;
-        pkt.data[0] = static_cast<uint8_t>(PacketType::EVENT);
-        pkt.data[1] = 11;  // Payload Length
-
-        pkt.data[2] = static_cast<uint8_t>(currentPad);
-        pkt.data[3] = 0x00;  // Always 0x00
-        pkt.data[4] = index;
-        pkt.data[5] = static_cast<uint8_t>(direction) & 0x01;
-        memcpy(&pkt.data[6], uid, 7);
-        pkt.data[13] = pkt.computeChecksum();
-
-        return pkt;
+        return ResponsePacket::build(cid, payload, 3);
     }
 };
 
@@ -421,12 +390,12 @@ struct ReadPacket : CommandPacket {
  *        response are TEA-encrypted.
  *
  * Request payload (encrypted, 8 bytes):
- *   [0]     index  — token index assigned at placement
+ *   [0]     index  - token index assigned at placement
  *   [1..3]  padding (ignored)
- *   [4..7]  conf   — u32 BE, echoed verbatim in the response
+ *   [4..7]  conf   - u32 BE, echoed verbatim in the response
  *
  * Response payload (9 bytes):
- *   [0]     status — 0x00 OK / 0xF9 no id / 0xF2 not found
+ *   [0]     status - 0x00 OK / 0xF9 no id / 0xF2 not found
  *   [1..8]  TEA-encrypted block:
  *               [0..3] tag id as u32 LE  (0x00000000 if no id / not found)
  *               [4..7] conf as u32 BE    (always echoed)
@@ -491,17 +460,10 @@ struct ModelPacket : CommandPacket {
 };
 
 /**
- * @brief A WRITE packet writes one page (4 bytes) of data into the tag buffer
- *        at the given token index.
+ * @brief A WRITE packet writes one page (4 bytes) to the NFC tag buffer at the given index on the
+ * playpad. A WRITE payload is basically just `[index][page][data]`. The response will always be a
+ * single status byte of `0x00`.
  *
- * Request payload  : [index][page][data0][data1][data2][data3]
- * Response payload : [0x00]  — single status byte, always OK
- *
- * Pages of interest:
- *   23 or 35 — vehicleUpgradesP23  (uint32 LE)
- *   24 or 36 — vehicle id          (uint16 LE)
- *   25 or 37 — vehicleUpgradesP25  (uint32 LE)
- *   26       — verification word   (0x0001 vehicle / 0x0000 character)
  */
 struct WritePacket : CommandPacket {
     static constexpr uint8_t DATA_SIZE = NFCTag::PAGE_SIZE;  // 4 bytes
@@ -521,9 +483,110 @@ struct WritePacket : CommandPacket {
         return req;
     }
 
-    /// @brief Builds a WRITE response — always a single 0x00 status byte.
+    /// @brief Returns a 0x00-ed status response for when a WRITE succeeds
     static ResponsePacket buildResponse(uint8_t cid) {
         uint8_t status = 0x00;
         return ResponsePacket::build(cid, &status, 1);
+    }
+};
+
+/**
+ * @brief A TagList packet is used to get (basic) info about the currently placed tags and where
+ * they are on the pad.
+ *
+ */
+struct TagListPacket : CommandPacket {
+    /**
+     * @brief A TagEntry is a bitfield (single byte) of the tag's index as well as the tags location
+     * (PadLocation values).
+     * The high nibble (bits 4-7) are the location.
+     * The low nibble (bits 0-3) are the index
+     *
+     */
+    struct TagEntry {
+        uint8_t index;
+        PadLocation location;
+
+        uint8_t toByte() const {
+            return (((static_cast<uint8_t>(location) << 4) & 0b11110000) | (index & 0b00001111));
+        }
+    };
+
+    /**
+     * @brief Creates a response packet based on the current TagEntry list
+     *
+     * @param cid Command ID to return in the response packet
+     * @param tags An array of tags (up to 5-6 at most)
+     * @param tagCount The # of tags in the array
+     * @return ResponsePacket
+     */
+    static ResponsePacket buildResponse(uint8_t cid, TagEntry* tags, size_t tagCount) {
+        static constexpr uint8_t MAX_PAYLOAD = (7 * 2);  // 15 bytes
+        uint8_t payload[MAX_PAYLOAD]{};
+
+        const uint8_t payloadLen = static_cast<uint8_t>((tagCount * 2));
+
+        for (size_t i = 0; i < tagCount; i++) {
+            payload[(i * 2)] = tags[i].toByte();
+            payload[(i * 2) + 2] = 0x00;
+        }
+
+        return ResponsePacket::build(cid, payload, payloadLen);
+    }
+};
+
+/**
+ * @brief A TagEventPacket is used to send info about when a tag moves on/off of the playpad.
+ *
+ */
+struct TagEventPacket : EventPacket {
+    // Tag Placed:        `56 0b 02 00 00 00 04c834eafb7380 3b 000000000000000000000000000000000000`
+    // Tag Removed:       `56 0b 02 00 00 01 04c834eafb7380 3c 000000000000000000000000000000000000`
+    // Tag Placed:        `56 0b 02 00 01 00 04c835eafb7380 3d 000000000000000000000000000000000000`
+
+    // 0x56: Event
+    // 0x0B: Length
+    // 0x02: Current Pad (Left)
+    // 0x00: Always 0x00 (???)
+    // 0x00: Index (+1 for every tag placed on the pad)
+    // 0x00 (0x01): Direction
+
+    // 04c834eafb7380: UID
+    // 0x3B: Checksum
+
+    /**
+     * @brief An enum used to specify which way a given tag has moved on the playpad
+     *
+     */
+    enum TagMovementDirection : uint8_t { PLACED = 0x00, REMOVED = 0x01 };
+
+    /**
+     * @brief Builds an event packet to send, constructed of all of the parameters, and used to
+     * identify that this specific tag has moved to this specific location When a tag is moved
+     * between pads, a REMOVED and a PLACED event should be sent sequentially Since with a physical
+     * playpad, it would have to be picked up and placed back down.
+     *
+     * @param currentPad The tag's current location
+     * @param index The tag's index (~+1 for every tag placed on the pad)
+     * @param direction The tag's movement direction (placed or removed from the playpad)
+     * @param uid The UID for the given toytag
+     * @return EventPacket
+     */
+    static EventPacket build(PadLocation currentPad,
+                             uint8_t index,
+                             TagMovementDirection direction,
+                             const uint8_t* uid) {
+        EventPacket pkt;
+        pkt.data[0] = static_cast<uint8_t>(PacketType::EVENT);
+        pkt.data[1] = 11;  // Payload Length
+
+        pkt.data[2] = static_cast<uint8_t>(currentPad);
+        pkt.data[3] = 0x00;  // Always 0x00
+        pkt.data[4] = index;
+        pkt.data[5] = static_cast<uint8_t>(direction) & 0x01;
+        memcpy(&pkt.data[6], uid, 7);
+        pkt.data[13] = pkt.computeChecksum();
+
+        return pkt;
     }
 };

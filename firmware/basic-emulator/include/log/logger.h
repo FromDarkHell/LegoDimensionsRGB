@@ -5,10 +5,6 @@
 #define LOG_BUFFER_SIZE 4096
 #define BAUD_RATE 9600
 
-// On Pico W:
-// Serial  = USB CDC (always available)
-// Serial1 = UART0 (GPIO 0/1)
-// Serial2 = UART1 (GPIO 4/5 or 8/9 etc.)
 #define LOG_UART Serial1
 #define LOG_UART_TX 17
 #define LOG_UART_RX 16

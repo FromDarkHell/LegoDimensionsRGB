@@ -170,6 +170,7 @@ void LegoServer::start_web() {
 void LegoServer::loop() {
     MDNS.update();
     ElegantOTA.loop();
+    ws.cleanupClients();
 }
 
 bool LegoServer::add_lego_endpoints() {
@@ -245,35 +246,6 @@ bool LegoServer::add_lego_endpoints() {
         request->send(200, "application/json", this->toybox->serialize());
     });
 
-    // *Playpad* Management
-
-    server->on("/playpad", HTTP_GET, [this](AsyncWebServerRequest* request) {
-        if (this->playpad == nullptr) {
-            request->send(404);
-            return;
-        }
-
-        JsonDocument playpadState;
-
-        static constexpr struct {
-            const char* key;
-            PadLocation location;
-        } PAD_ENTRIES[] = {
-            {"left", PadLocation::LEFT},
-            {"center", PadLocation::CENTER},
-            {"right", PadLocation::RIGHT},
-        };
-
-        for (const auto& entry : PAD_ENTRIES) {
-            JsonObject obj = playpadState[entry.key].to<JsonObject>();
-            this->playpad->getPad(entry.location)->toJson(obj);
-        }
-
-        String result;
-        serializeJson(playpadState, result);
-        request->send(200, "application/json", result);
-    });
-
     // Running a PUT request onto the `/playpad` endpoint
     // It lets you move a tag around based on the UID.
     server->on("/playpad", HTTP_PUT, [this](AsyncWebServerRequest* request) {
@@ -301,8 +273,8 @@ bool LegoServer::add_lego_endpoints() {
             return;
         }
 
-        const TagPadLocation lastLocation = (*tag).padIndex;
-        const TagPadLocation location = static_cast<TagPadLocation>(std::stoi(tag_index));
+        const TagIndex lastLocation = (*tag).padIndex;
+        const TagIndex location = static_cast<TagIndex>(std::stoi(tag_index));
         (*tag).padIndex = location;
         this->store_toybox();
 
@@ -310,6 +282,55 @@ bool LegoServer::add_lego_endpoints() {
 
         request->send(200, "application/json", this->toybox->serialize());
     });
+
+    ws.onEvent([this](AsyncWebSocket* server, AsyncWebSocketClient* client, AwsEventType type,
+                      void* arg, uint8_t* data, size_t len) {
+        switch (type) {
+            case WS_EVT_CONNECT:
+                log_dbg("[LegoServer] WebSocket client #%u connected", client->id());
+                // Push current state immediately on connect so the page
+                // doesn't have to wait for the next change
+                if (this->playpad) {
+                    JsonDocument doc;
+                    static constexpr struct {
+                        const char* key;
+                        PadLocation loc;
+                    } ENTRIES[] = {
+                        {"left", PadLocation::LEFT},
+                        {"center", PadLocation::CENTER},
+                        {"right", PadLocation::RIGHT},
+                    };
+                    for (const auto& e : ENTRIES) {
+                        JsonObject obj = doc[e.key].to<JsonObject>();
+                        this->playpad->getPad(e.loc)->toJson(obj);
+                    }
+                    String json;
+                    serializeJson(doc, json);
+                    client->text(json);
+                }
+                break;
+
+            case WS_EVT_DISCONNECT:
+                log_dbg("[LegoServer] WebSocket client #%u disconnected", client->id());
+                break;
+
+            default:
+                break;
+        }
+    });
+
+    server->addHandler(&ws);
+
+    if (playpad != nullptr) {
+        playpad->onPadStateChange([this](const String& serializedPadState) {
+            if (ws.count() == 0) {
+                return;
+            }
+
+            log_dbg("[LegoServer] Broadcasting pad state to %u client(s)", ws.count());
+            ws.textAll(serializedPadState);
+        });
+    }
 
     return true;
 }
