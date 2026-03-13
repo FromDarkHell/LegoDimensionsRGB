@@ -51,14 +51,41 @@
           "min_clearance": 0.5
         }
       },
-      "diff_pair_dimensions": [
-        {
-          "gap": 0.0,
-          "via_gap": 0.0,
-          "width": 0.0
-        }
+      "diff_pair_dimensions": [],
+      "drc_exclusions": [
+        [
+          "silk_edge_clearance|135090000|69750000|a1116dc6-0c02-42b4-8a45-91e659656660|0259c17e-ecd1-4938-9bf2-a03971842e20",
+          ""
+        ],
+        [
+          "silk_edge_clearance|148410000|69750000|a1116dc6-0c02-42b4-8a45-91e659656660|fddcb329-cd3e-4999-9e67-4c26626bfac6",
+          ""
+        ],
+        [
+          "silk_over_copper|108840000|98451200|240a966e-0cb9-40ba-b6ac-8bd4b5f80af6|00000000-0000-0000-0000-000000000000",
+          ""
+        ],
+        [
+          "silk_over_copper|108840317|83280800|0e763c4a-64f4-4b6c-8e74-7022bdd88c66|00000000-0000-0000-0000-000000000000",
+          ""
+        ],
+        [
+          "silk_over_copper|108846546|100237199|0474cf3d-c18c-4711-91b2-8d95fca04160|00000000-0000-0000-0000-000000000000",
+          ""
+        ],
+        [
+          "silk_over_copper|126613453|100237199|1d4feeee-07c7-4702-82c6-59156b881292|00000000-0000-0000-0000-000000000000",
+          ""
+        ],
+        [
+          "silk_over_copper|126619604|83211199|813cf457-5eec-4d70-97de-a067ab879c1f|00000000-0000-0000-0000-000000000000",
+          ""
+        ],
+        [
+          "silk_over_copper|126620000|98451200|c7a10097-92de-4f72-9933-f685ad3db1d5|00000000-0000-0000-0000-000000000000",
+          ""
+        ]
       ],
-      "drc_exclusions": [],
       "meta": {
         "version": 2
       },
@@ -186,11 +213,7 @@
           "td_width_to_size_filter_ratio": 0.9
         }
       ],
-      "track_widths": [
-        0.0,
-        0.2,
-        0.8
-      ],
+      "track_widths": [],
       "tuning_pattern_settings": {
         "diff_pair_defaults": {
           "corner_radius_percentage": 80,
@@ -217,12 +240,7 @@
           "spacing": 0.6
         }
       },
-      "via_dimensions": [
-        {
-          "diameter": 0.0,
-          "drill": 0.0
-        }
-      ],
+      "via_dimensions": [],
       "zones_allow_external_fillets": false
     },
     "ipc2581": {
@@ -465,7 +483,7 @@
     "pinned_symbol_libs": []
   },
   "meta": {
-    "filename": "basic-emulator.kicad_pro",
+    "filename": "basic-rgb.kicad_pro",
     "version": 3
   },
   "net_settings": {
@@ -625,7 +643,7 @@
   },
   "sheets": [
     [
-      "51d491f5-019d-406b-98bc-26a802e36131",
+      "309b9956-74e9-40ad-a51f-f9a16b592c61",
       "Root"
     ]
   ],
