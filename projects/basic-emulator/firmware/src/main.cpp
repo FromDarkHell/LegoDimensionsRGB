@@ -65,8 +65,15 @@ void loop() {
 
     if (webServer == nullptr) {
         log_dbg("[loop] Initializing Playpad Server...");
-        webServer = new LegoServer(config.getString("ssid", NULL),
-                                   config.getString("password", NULL), &playPad);
+
+        const char* ssid = config.getString("ssid", "");
+        const char* pass = config.getString("password", "");
+
+        webServer = new LegoServer(ssid, pass, &playPad);
+
+        free((void*)ssid);
+        free((void*)pass);
+
         if (!webServer->success) {
             delete webServer;
             webServer = nullptr;

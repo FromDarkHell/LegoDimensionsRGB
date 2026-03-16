@@ -10,7 +10,15 @@
     </style>
   </head>
   <body>
-    <h1>Playpad Emulator</h1>
+    <div
+      style="display: flex; align-items: center; gap: 1em; margin-bottom: 1em"
+    >
+      <h1 style="margin: 0">Playpad Emulator</h1>
+      <span id="ws-status" class="connecting">
+        <span class="dot"></span>
+        <span id="ws-status-text">Connecting</span>
+      </span>
+    </div>
 
     <div style="width: 100%">
       <div class="main">
@@ -34,7 +42,7 @@
         </div>
 
         <div class="box" style="flex-direction: row">
-          <div class="box">
+          <div class="box" style="flex-shrink: 1">
             <div
               style="
                 display: flex;
@@ -61,7 +69,7 @@
             <div id="toybox"></div>
           </div>
 
-          <div class="box" style="max-width: 50%">
+          <div class="box" style="max-width: 50%; flex-shrink: 0">
             <h2>Playpad</h2>
             <div class="movement-instructions">
               Click on toys here to select them for moving, or click a selected
@@ -381,7 +389,19 @@
       const keyframeIndex = {};
 
       function rgb(c) {
-        return `rgb(${c.r},${c.g},${c.b})`;
+        function rgbToPerceivedColor(color) {
+          const GAMMA = 3.78;
+
+          return {
+            r: Math.round(Math.pow(color.r / 255, 1 / GAMMA) * 255),
+            g: Math.round(Math.pow(color.g / 255, 1 / GAMMA) * 255),
+            b: Math.round(Math.pow(color.b / 255, 1 / GAMMA) * 255),
+          };
+        }
+
+        cx = rgbToPerceivedColor(c);
+
+        return `rgb(${cx.r},${cx.g},${cx.b})`;
       }
 
       let flashSeq = 0;
@@ -537,16 +557,87 @@
 
       let _ws = null;
       function connectWS() {
+        const statusEl = document.getElementById("ws-status");
+        const statusTextEl = document.getElementById("ws-status-text");
+
+        const PING_INTERVAL_MS = 3000; // how often the client pings
+        const PONG_TIMEOUT_MS = 6000; // how long to wait for a pong reply
+
+        let _pingInterval = null;
+        let _pongTimeout = null;
+        let _awaitingPong = false;
+
+        function setStatus(state, text) {
+          statusEl.className = state;
+          statusTextEl.textContent = text;
+        }
+
+        function sendPing() {
+          if (_ws.readyState !== WebSocket.OPEN) return;
+
+          if (_awaitingPong) {
+            console.warn("[WS] Pong not received in time");
+            setStatus("disconnected", "Disconnected");
+            stopHeartbeat();
+            _ws.close();
+            return;
+          }
+
+          _awaitingPong = true;
+          _ws.send(JSON.stringify({ type: "ping" }));
+          console.debug("[WS] Ping sent");
+
+          // If pong doesn't arrive within the timeout, next sendPing will catch it
+          _pongTimeout = setTimeout(() => {
+            if (_awaitingPong) {
+              console.warn("[WS] Pong timeout");
+              setStatus("disconnected", "No Response");
+            }
+          }, PONG_TIMEOUT_MS);
+        }
+
+        function startHeartbeat() {
+          stopHeartbeat();
+          _awaitingPong = false;
+          _pingInterval = setInterval(sendPing, PING_INTERVAL_MS);
+        }
+
+        function stopHeartbeat() {
+          if (_pingInterval !== null) {
+            clearInterval(_pingInterval);
+            _pingInterval = null;
+          }
+          if (_pongTimeout !== null) {
+            clearTimeout(_pongTimeout);
+            _pongTimeout = null;
+          }
+          _awaitingPong = false;
+        }
+
+        setStatus("connecting", "Connecting");
+
         const url = `ws://${location.host}/ws`;
         _ws = new WebSocket(url);
 
         _ws.onopen = () => {
-          console.log("[WS] Connected to pad state stream");
+          console.log("[WS] Connected");
+          setStatus("connected", "Connected");
+          startHeartbeat();
         };
 
         _ws.onmessage = (evt) => {
           try {
             const data = JSON.parse(evt.data);
+
+            if (data.type === "pong") {
+              console.debug("[WS] Pong received");
+              clearTimeout(_pongTimeout);
+              _pongTimeout = null;
+              _awaitingPong = false;
+              setStatus("connected", "Connected");
+              return;
+            }
+
             handlePadState(data);
           } catch (e) {
             console.error("[WS] Bad message:", e);
@@ -554,12 +645,16 @@
         };
 
         _ws.onclose = () => {
-          console.warn("[WS] Disconnected - reconnecting in 2s");
+          console.warn("[WS] Closed");
+          setStatus("disconnected", "Disconnected");
+          stopHeartbeat();
           setTimeout(connectWS, 2000);
         };
 
         _ws.onerror = (e) => {
           console.error("[WS] Error:", e);
+          setStatus("disconnected", "Error");
+          stopHeartbeat();
           _ws.close();
         };
       }
@@ -626,6 +721,8 @@
     function updateGrid(grid_type, tags) {
       const grid = document.getElementById(`${grid_type}Grid`);
       grid.innerHTML = "";
+
+      tags.sort((a, b) => a.name.localeCompare(b.name));
 
       tags.forEach((tag) => {
         const option = document.createElement("div");
@@ -748,14 +845,21 @@
     }
 
     function clearSelection() {
-      // Clear any previously selected toys
-      document.querySelectorAll(".toy-item.selected").forEach((item) => {
-        item.classList.remove("selected");
-      });
-      document.querySelectorAll(".toy-on-pad.selected").forEach((item) => {
-        item.classList.remove("selected");
-      });
-      selectedToy = null;
+      document
+        .querySelectorAll(".toy-item.selected")
+        .forEach((el) => el.classList.remove("selected"));
+      document
+        .querySelectorAll(".toy-on-pad.selected")
+        .forEach((el) => el.classList.remove("selected"));
+
+      // Re-render any pad that was showing action buttons
+      if (selectedToy !== null && selectedToy.currentPadId !== undefined) {
+        const currentPad = selectedToy.currentPadId;
+        selectedToy = null;
+        renderPad(currentPad);
+      } else {
+        selectedToy = null;
+      }
     }
 
     async function updateToybox() {
@@ -886,37 +990,37 @@
         `Swapped toys: ${sourceToy.name} and ${targetToy.name} between pads ${sourcePadId} and ${targetPadId}`,
       );
     }
-
     function handleToyOnPadClick(e, padId) {
       e.stopPropagation();
 
       const toyOnPad = playpadToys[padId];
       if (!toyOnPad) return;
 
-      // If no toy is selected, select this toy
-      if (!selectedToy) {
-        selectedToy = { ...toyOnPad, currentPadId: padId };
-        e.target.closest(".toy-on-pad").classList.add("selected");
-        console.log(`Selected toy on pad: ${JSON.stringify(selectedToy)}`);
-      }
-      // If this toy is already selected, move it back to toybox
-      else if (
+      // Clicking the already-selected toy on its pad
+      if (
+        selectedToy &&
         selectedToy.uid === toyOnPad.uid &&
         selectedToy.currentPadId === padId
       ) {
-        moveToyToToybox(padId);
         clearSelection();
-      } else {
-        if (selectedToy.currentPadId === undefined) {
-          // Selected toy is from toybox, swap with pad toy
-          swapToyWithPad(selectedToy, padId);
-        } else {
-          // Both toys are on pads, swap between pads
-          swapToysBetweenPads(selectedToy.currentPadId, padId);
-        }
-
-        clearSelection();
+        return;
       }
+
+      // No selection yet — select this pad toy
+      if (!selectedToy) {
+        selectedToy = { ...toyOnPad, currentPadId: padId };
+        renderPad(padId); // re-render to show action overlay
+        return;
+      }
+
+      // A different toy is selected — swap or place
+      if (selectedToy.currentPadId === undefined) {
+        swapToyWithPad(selectedToy, padId);
+      } else {
+        swapToysBetweenPads(selectedToy.currentPadId, padId);
+      }
+
+      clearSelection();
     }
 
     function moveToyToPad(toy, padId, updateToybox = true) {
@@ -953,28 +1057,71 @@
     }
 
     function renderPad(padId) {
+      console.log(`Rendering pad: ${padId}`);
       const pad = document.querySelector(`[data-pad-index="${padId}"]`);
       const toy = playpadToys[padId];
 
-      if (toy) {
-        pad.classList.add("occupied");
-        pad.innerHTML = `
-          <div class="toy-on-pad" data-uid="${toy.uid}">
-            <img src="/images/${toy.type}s/${toy.id
-              .toString()
-              .padStart(4, "0")}.webp" alt="${toy.name}" >
-            <p>${toy.name}</p>
-          </div>
-        `;
-      } else {
+      if (!toy) {
         pad.classList.remove("occupied");
         pad.innerHTML = "";
+        return;
+      }
+
+      const isSelected =
+        selectedToy &&
+        selectedToy.uid === toy.uid &&
+        selectedToy.currentPadId == padId;
+
+      pad.classList.add("occupied");
+      pad.innerHTML = `
+        <div class="toy-on-pad ${isSelected ? "selected" : ""}" data-uid="${toy.uid}">
+            <img src="/images/${toy.type}s/${toy.id.toString().padStart(4, "0")}.webp"
+                 alt="${toy.name}">
+            <p>${toy.name}</p>
+            ${
+              isSelected
+                ? `
+            <div class="pad-toy-actions">
+                <button class="pad-toy-action action-putback" title="Put back">Place</button>
+                <button class="pad-toy-action action-remove"  title="Remove">Remove</button>
+            </div>`
+                : ""
+            }
+        </div>
+    `;
+
+      // Wire up the action buttons if present
+      if (isSelected) {
+        pad.querySelector(".action-putback").addEventListener("click", (e) => {
+          e.stopPropagation();
+          moveToyToPad(selectedToy, selectedToy.currentPadId);
+          clearSelection(); // already in correct place, just deselect
+        });
+
+        pad.querySelector(".action-remove").addEventListener("click", (e) => {
+          e.stopPropagation();
+          moveToyToToybox(padId);
+          clearSelection();
+        });
       }
     }
 
     // Initialize the system
     function init() {
       updateToybox();
+
+      // Deselect when clicking outside any pad or toybox item
+      document.addEventListener("click", function (e) {
+        if (selectedToy === null) return;
+
+        const isInsidePad = e.target.closest(".pad[data-pad-index]");
+        const isInsideToybox = e.target.closest(".toy-item");
+        const isActionBtn = e.target.closest(".pad-toy-action");
+
+        if (!isInsidePad && !isInsideToybox && !isActionBtn) {
+          clearSelection();
+        }
+      });
 
       // Add click event handlers to all of the pads
       document.querySelectorAll(".pad[data-pad-index]").forEach((pad) => {
@@ -984,6 +1131,12 @@
           // If clicking on a toy that's already on a pad
           if (e.target.closest(".toy-on-pad")) {
             handleToyOnPadClick(e, padId);
+            return;
+          }
+
+          if (selectedToy && selectedToy.currentPadId == padId) {
+            moveToyToPad(selectedToy, selectedToy.currentPadId);
+            clearSelection();
             return;
           }
 

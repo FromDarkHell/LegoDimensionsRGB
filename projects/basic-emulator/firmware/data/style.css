@@ -197,6 +197,43 @@ button:hover {
   outline-offset: -4px;
 }
 
+.toy-on-pad {
+  position: relative;
+}
+
+.pad-toy-actions {
+  position: absolute;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  bottom: 0%;
+}
+
+.pad-toy-action {
+  height: 28px;
+  padding: 3px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  font-size: 0.8em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.action-putback {
+  background: #d1fae5;
+  color: #065f46;
+}
+.action-remove {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* Modals */
+
 .modal {
   position: fixed;
   inset: 0;
@@ -222,6 +259,8 @@ button:hover {
   float: right;
   font-weight: bold;
 }
+
+/* Character/Toybox Management */
 
 .characterGrid {
   display: grid;
@@ -260,6 +299,7 @@ button:hover {
   color: #666;
 }
 
+/* Playpad Styling */
 #playpad {
   display: grid;
   grid-template-columns: repeat(5, 120px);
@@ -293,4 +333,41 @@ button:hover {
   justify-content: center;
   background-color: #6e6e6e;
   margin: 0 0.5em;
+}
+
+/* WebSocket Status/Pings */
+
+#ws-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  font-size: 0.85em;
+  padding: 0.25em 0.75em;
+  border-radius: 999px;
+  font-weight: 600;
+  transition:
+    background-color 0.3s,
+    color 0.3s;
+  margin-top: 0.5em;
+}
+
+#ws-status.connected {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+#ws-status.disconnected {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+#ws-status.connecting {
+  background: #fef9c3;
+  color: #854d0e;
+}
+#ws-status .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
 }

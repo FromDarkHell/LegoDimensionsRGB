@@ -44,8 +44,13 @@ class LegoServer {
     const char* css = nullptr;
 
     AsyncWebServer* server = nullptr;
+
     AsyncWebSocket ws{"/ws"};
 
     Toybox* toybox = nullptr;
+    bool _toyboxDirty = false;
+    uint32_t _lastStoreMs = 0;
+    static constexpr uint32_t STORE_DEBOUNCE_MS = 2000;
+
     PlayPad* playpad = nullptr;
 };

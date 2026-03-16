@@ -29,7 +29,7 @@ const char* fs_read(const char* name, bool terminate) {
     }
 
     size_t size = file.size();
-    char* buffer = new char[size + (terminate ? 1 : 0)];
+    char* buffer = (char*)malloc(size + (terminate ? 1 : 0));
 
     size_t bytesRead = file.readBytes(buffer, size);
 

@@ -19,7 +19,7 @@ class Reader {
     }
 
     static uint16_t readUInt16BE(const uint8_t* buf, size_t offset = 0) {
-        return ((uint16_t)buf[offset] << 24) | ((uint16_t)buf[offset + 1] << 16);
+        return ((uint16_t)buf[offset] << 8) | (uint16_t)buf[offset + 1];
     }
 
     static void writeUInt32LE(uint8_t* buf, int offset, uint32_t value) {

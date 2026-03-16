@@ -192,11 +192,31 @@ class Gateway:
         self._cid += 1
         return self._cid
 
-    # def get_taglist(self):
-    #     self._send_command([0xD0, self.get_cid()])
-
-    def fade_random(self, speed: int, cycles: int):
-        self._send_command([0xC4, self.get_cid(), speed, cycles])
+    def example_packet(self):
+        self._send_command(
+            [
+                0xC6,
+                self.get_cid(),
+                0x01,
+                0x00,
+                0x01,
+                0x4C,
+                0x20,
+                0x00,
+                0x01,
+                0x00,
+                0x01,
+                0x00,
+                0x20,
+                0x07,
+                0x01,
+                0x00,
+                0x01,
+                0x4C,
+                0x00,
+                0x07,
+            ]
+        )
 
     def sniff(self, attempts: int = 50):
         collections = 0

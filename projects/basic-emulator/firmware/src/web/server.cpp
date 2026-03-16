@@ -1,15 +1,21 @@
 #include "web/server.h"
 
 LegoServer::LegoServer(const char* ssid, const char* password, PlayPad* playpadInstance) {
-    this->ssid = ssid;
-    this->password = password;
+    this->ssid = strdup(ssid);
+    this->password = strdup(password);
     this->html = fs_read("/index.html");
     this->css = fs_read("/style.css");
     this->playpad = playpadInstance;
 
     this->initialize();
 }
-LegoServer::~LegoServer() {}
+LegoServer::~LegoServer() {
+    free((void*)this->ssid);
+    free((void*)this->password);
+
+    free((void*)this->css);
+    free((void*)this->html);
+}
 
 void LegoServer::initialize() {
     success = true;
@@ -171,6 +177,12 @@ void LegoServer::loop() {
     MDNS.update();
     ElegantOTA.loop();
     ws.cleanupClients();
+
+    if (_toyboxDirty && (millis() - _lastStoreMs > STORE_DEBOUNCE_MS)) {
+        store_toybox();
+        _toyboxDirty = false;
+        _lastStoreMs = millis();
+    }
 }
 
 bool LegoServer::add_lego_endpoints() {
@@ -267,17 +279,22 @@ bool LegoServer::add_lego_endpoints() {
             }
         }
 
+        if (tag_uid == nullptr) {
+            request->send(400, "text/plain", "Missing Tag UID");
+            return;
+        }
+
         ToyTag* tag = this->toybox->getByUID(tag_uid);
         if (tag == nullptr) {
-            request->send(404);
+            request->send(404, "text/plain", "Unable to find tag");
             return;
         }
 
         const TagIndex lastLocation = (*tag).padIndex;
         const TagIndex location = static_cast<TagIndex>(std::stoi(tag_index));
         (*tag).padIndex = location;
-        this->store_toybox();
 
+        this->_toyboxDirty = true;
         this->playpad->tagChangeEvent(tag, lastLocation);
 
         request->send(200, "application/json", this->toybox->serialize());
@@ -314,6 +331,22 @@ bool LegoServer::add_lego_endpoints() {
                 log_dbg("[LegoServer] WebSocket client #%u disconnected", client->id());
                 break;
 
+            case WS_EVT_DATA: {
+                AwsFrameInfo* info = (AwsFrameInfo*)arg;
+                if (info->final && info->index == 0 && info->len == len
+                    && info->opcode == WS_TEXT) {
+                    char msg[len + 1];
+                    memcpy(msg, data, len);
+                    msg[len] = '\0';
+
+                    if (strncmp(msg, "{\"type\":\"ping\"}", len) == 0) {
+                        log_dbg("[LegoServer] Ping from client #%u", client->id());
+                        client->text("{\"type\":\"pong\"}");
+                    }
+                }
+                break;
+            }
+
             default:
                 break;
         }
@@ -343,8 +376,14 @@ bool LegoServer::load_toybox() {
     }
 
     const char* json = fs_read("/toybox.json");
+    if (!json) {
+        return false;
+    }
 
-    return this->toybox->deserialize(json);
+    bool result = this->toybox->deserialize(json);
+    free((void*)json);
+
+    return result;
 }
 
 bool LegoServer::store_toybox() {

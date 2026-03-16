@@ -35,10 +35,27 @@ void PlayPad::update() {
 
     // Drain one queued event packet per interval tick
     _eventQueue.update([this](BasePacket& p) { sendPacket(p); });
+
+    if (_padStateDirty) {
+        _padStateDirty = false;
+        _notifyPadStateChange();
+    }
 }
 
 bool PlayPad::_sendReport(uint8_t const* buffer, uint16_t bufsize) {
-    return _usb_hid.sendReport(0, buffer, bufsize);
+    uint32_t save = save_and_disable_interrupts();
+    if (_isSending) {
+        restore_interrupts(save);
+        log_warn("[PlayPad] Dropped packet - re-entrant send");
+        return false;
+    }
+    _isSending = true;
+    restore_interrupts(save);
+
+    bool result = _usb_hid.sendReport(0, buffer, bufsize);
+
+    _isSending = false;
+    return result;
 }
 
 void PlayPad::_configureDevice() {
@@ -329,8 +346,6 @@ void PlayPad::_handleCol(const CommandPacket& packet) {
 
     ResponsePacket blank = ResponsePacket::blank(packet.cid());
     sendPacket(blank);
-
-    _notifyPadStateChange();
 }
 
 void PlayPad::_handleColAll(const CommandPacket& packet) {
@@ -341,14 +356,14 @@ void PlayPad::_handleColAll(const CommandPacket& packet) {
         parsed.centerColor.g, parsed.centerColor.b, parsed.rightColor.r, parsed.rightColor.g,
         parsed.rightColor.b);
 
-    PADS[0].setColor(parsed.leftColor);
-    PADS[1].setColor(parsed.centerColor);
-    PADS[2].setColor(parsed.rightColor);
+    getPad(PadLocation::LEFT)->setColor(parsed.leftColor);
+    getPad(PadLocation::CENTER)->setColor(parsed.centerColor);
+    getPad(PadLocation::RIGHT)->setColor(parsed.rightColor);
 
     ResponsePacket blank = ResponsePacket::blank(packet.cid());
     sendPacket(blank);
 
-    _notifyPadStateChange();
+    _padStateDirty = true;
 }
 
 void PlayPad::_handleFlash(const CommandPacket& packet) {
@@ -362,14 +377,14 @@ void PlayPad::_handleFlash(const CommandPacket& packet) {
             PADS[i].setFlash(parsed.offColor, parsed.onTicks, parsed.offTicks, parsed.count);
         }
     } else {
-        PADS[static_cast<uint8_t>(parsed.padLocation) - 1].setFlash(parsed.offColor, parsed.onTicks,
-                                                                    parsed.offTicks, parsed.count);
+        getPad(parsed.padLocation)
+            ->setFlash(parsed.offColor, parsed.onTicks, parsed.offTicks, parsed.count);
     }
 
     ResponsePacket blank = ResponsePacket::blank(packet.cid());
     sendPacket(blank);
 
-    _notifyPadStateChange();
+    _padStateDirty = true;
 }
 
 void PlayPad::_handleFlashAll(const CommandPacket& packet) {
@@ -377,24 +392,24 @@ void PlayPad::_handleFlashAll(const CommandPacket& packet) {
     FlashAllPacket::FlashStatus parsed = FlashAllPacket::fromCommand(packet);
 
     struct {
-        int idx;
+        PadLocation loc;
         FlashAllPacket::FlashStatus::PadFlashStatus& pad;
     } pads[] = {
-        {0, parsed.leftPad},
-        {1, parsed.centerPad},
-        {2, parsed.rightPad},
+        {PadLocation::LEFT, parsed.leftPad},
+        {PadLocation::CENTER, parsed.centerPad},
+        {PadLocation::RIGHT, parsed.rightPad},
     };
 
-    for (auto& [idx, pad] : pads) {
+    for (auto& [loc, pad] : pads) {
         if (pad.enable) {
-            PADS[idx].setFlash(pad.offColor, pad.onTicks, pad.offTicks, pad.count);
+            getPad(loc)->setFlash(pad.offColor, pad.onTicks, pad.offTicks, pad.count);
         }
     }
 
     ResponsePacket blank = ResponsePacket::blank(packet.cid());
     sendPacket(blank);
 
-    _notifyPadStateChange();
+    _padStateDirty = true;
 }
 
 void PlayPad::_handleFade(const CommandPacket& packet) {
@@ -409,14 +424,13 @@ void PlayPad::_handleFade(const CommandPacket& packet) {
             PADS[i].setFade(parsed.color, parsed.speed, parsed.cycles);
         }
     } else {
-        PADS[static_cast<uint8_t>(parsed.padLocation) - 1].setFade(parsed.color, parsed.speed,
-                                                                   parsed.cycles);
+        getPad(parsed.padLocation)->setFade(parsed.color, parsed.speed, parsed.cycles);
     }
 
     ResponsePacket blank = ResponsePacket::blank(packet.cid());
     sendPacket(blank);
 
-    _notifyPadStateChange();
+    _padStateDirty = true;
 }
 
 void PlayPad::_handleFadeAll(const CommandPacket& packet) {
@@ -424,32 +438,37 @@ void PlayPad::_handleFadeAll(const CommandPacket& packet) {
     FadeAllPacket::FadeStatus parsed = FadeAllPacket::fromCommand(packet);
 
     struct {
-        int idx;
-        FadeAllPacket::FadeStatus::PadFadeStatus& pad;
+        PadLocation loc;
+        FadeAllPacket::FadeStatus::PadFadeStatus pad;
     } pads[] = {
-        {0, parsed.leftPad},
-        {1, parsed.centerPad},
-        {2, parsed.rightPad},
+        {PadLocation::LEFT, parsed.leftPad},
+        {PadLocation::CENTER, parsed.centerPad},
+        {PadLocation::RIGHT, parsed.rightPad},
     };
 
-    for (auto& [idx, pad] : pads) {
+    for (auto& [loc, pad] : pads) {
         if (pad.enable) {
-            PADS[idx].setFade(pad.color, pad.speed, pad.cycles);
+            getPad(loc)->setFade(pad.color, pad.speed, pad.cycles);
         }
     }
 
     ResponsePacket blank = ResponsePacket::blank(packet.cid());
     sendPacket(blank);
 
-    _notifyPadStateChange();
+    _padStateDirty = true;
 }
 
 void PlayPad::_handleGetColor(const CommandPacket& packet) {
     const PadLocation colorToGet = GetColorPacket::fromCommand(packet);
 
+    if (colorToGet == PadLocation::ALL) {
+        log_warn("[PlayPad] GETCOL received for ALL, ignoring");
+        return;
+    }
+
     log_dbg("[PlayPad] Getting color for pad %d", colorToGet);
-    ResponsePacket response = GetColorPacket::buildResponse(
-        packet.cid(), PADS[static_cast<uint8_t>(colorToGet) - 1].color());
+    ResponsePacket response =
+        GetColorPacket::buildResponse(packet.cid(), getPad(colorToGet)->color());
 
     sendPacket(response);
 }

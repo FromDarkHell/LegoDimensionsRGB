@@ -119,6 +119,13 @@ class PlayPad {
     Adafruit_USBD_HID _usb_hid;
 
     /**
+     * @brief A simple boolean state for whether or not we're already sending a packet, this
+     * shouldn't be too important in practice.
+     *
+     */
+    bool _isSending = false;
+
+    /**
      * @brief Configures the USB HID device with the correct vendor ID, product ID, and other device
      * properties.
      *
@@ -225,6 +232,7 @@ class PlayPad {
     EventQueue _eventQueue;
 
     std::function<void(const String&)> _padStateCallback = nullptr;
+    bool _padStateDirty = false;
 
     /**
      * @brief An internal function used for updating the pad state after any major change

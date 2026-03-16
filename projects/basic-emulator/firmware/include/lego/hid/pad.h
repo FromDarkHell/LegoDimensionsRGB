@@ -250,9 +250,9 @@ class PlaypadPad {
     PadFadeState _fade;
     PadFlashState _flash;
 
-    uint16_t _lastTickMs = 0;
-    uint16_t _fadeTick = 0;   // current tick within the full fade sequence
-    uint16_t _flashTick = 0;  // current tick within the full flash sequence
+    uint32_t _lastTickMs = 0;
+    uint32_t _fadeTick = 0;   // current tick within the full fade sequence
+    uint32_t _flashTick = 0;  // current tick within the full flash sequence
 
     /**
      * @brief The current tick count for the current effect/mode

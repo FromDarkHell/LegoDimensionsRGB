@@ -275,6 +275,7 @@ def fix_json():
                     rebuilds.append(v2)
 
             print(f"Found {len(rebuilds)} rebuilds for {v['id']}")
+            v["name"] = v["name"].strip(" *")
             v["rebuilds"] = rebuilds
             all_rebuilds.extend(rebuilds)
 

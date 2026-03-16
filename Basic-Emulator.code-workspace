@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"name": "firmware",
+			"path": "projects/basic-emulator/firmware"
+		},
+		{
+			"name": "LegoDimensionsRGB",
+			"path": "."
+		}
+	]
+}

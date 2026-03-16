@@ -144,8 +144,8 @@ struct ColorPacket : CommandPacket {
 struct ColorAllPacket : CommandPacket {
     // Parsed/decrypted contents of a COLORALL command payload
     struct ColorStatus {
-        PadColor leftColor;
         PadColor centerColor;
+        PadColor leftColor;
         PadColor rightColor;
     };
 
@@ -155,8 +155,28 @@ struct ColorAllPacket : CommandPacket {
     static ColorStatus fromCommand(const CommandPacket& packet) {
         const uint8_t* decrypted = packet.payload();
 
-        return {PadColor::fromBuffer(&decrypted[1]), PadColor::fromBuffer(&decrypted[2]),
-                PadColor::fromBuffer(&decrypted[3])};
+        ColorStatus result{};
+        for (int i = 0; i < 3; i++) {
+            const int offset = i * 4;
+            const PadLocation loc = static_cast<PadLocation>(decrypted[offset]);
+            const PadColor color = PadColor::fromBuffer(&decrypted[offset + 1]);
+
+            switch (loc) {
+                case PadLocation::CENTER:
+                    result.centerColor = color;
+                    break;
+                case PadLocation::LEFT:
+                    result.leftColor = color;
+                    break;
+                case PadLocation::RIGHT:
+                    result.rightColor = color;
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        return result;
     }
 };
 
@@ -528,7 +548,7 @@ struct TagListPacket : CommandPacket {
 
         for (size_t i = 0; i < tagCount; i++) {
             payload[(i * 2)] = tags[i].toByte();
-            payload[(i * 2) + 2] = 0x00;
+            payload[(i * 2) + 1] = 0x00;
         }
 
         return ResponsePacket::build(cid, payload, payloadLen);

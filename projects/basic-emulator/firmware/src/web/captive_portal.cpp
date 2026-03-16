@@ -11,11 +11,24 @@ CaptivePortal::CaptivePortal(const char* ssid, const char* password) {
 }
 
 CaptivePortal::~CaptivePortal() {
-    this->dnsServer->stop();
-    this->server->end();
-
-    free(this->dnsServer);
-    free(this->server);
+    if (dnsServer) {
+        dnsServer->stop();
+        delete dnsServer;
+        dnsServer = nullptr;
+    }
+    if (server) {
+        server->end();
+        delete server;
+        server = nullptr;
+    }
+    if (html) {
+        free((void*)html);
+        html = nullptr;
+    }
+    if (css) {
+        free((void*)css);
+        css = nullptr;
+    }
 }
 
 void CaptivePortal::initialize() {

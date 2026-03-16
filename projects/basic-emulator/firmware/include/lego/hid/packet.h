@@ -95,6 +95,7 @@ struct BasePacket {
 
         uint8_t* decrypted = (uint8_t*)malloc(PLAYPAD_MAX_PACKET_SIZE);
         if (!tea->decrypt(packet->payload(), decrypted)) {
+            free(decrypted);
             return nullptr;
         }
 

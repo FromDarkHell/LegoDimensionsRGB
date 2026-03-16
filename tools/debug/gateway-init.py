@@ -30,13 +30,30 @@ def main():
     elif False:
         gateway.fade_pads(
             [
-                (10, 2, (255, 0, 0)),
-                (15, 4, (0, 255, 0)),
-                (25, 5, (0, 0, 255)),  # Right Pad = Stays Blue
+                (0, 1, (76, 32, 0)),  # Center Pad = Red
+                (0, 1, (255, 255, 0)),  # Left Pad = Green
+                (0, 1, (255, 255, 255)),  # Right Pad = Stays Blue
             ]
         )
 
-    gateway.fade_random(50, 2)
+    gateway.fade_pads(
+        [
+            (0, 1, (0, 0, 24)),  # Center Pad = Blue
+            None,
+            None,
+        ]
+    )
+
+    time.sleep(5)
+
+    gateway.fade_pads(
+        [
+            (0, 1, (0, 0, 255)),  # Center Pad = Blue
+            None,
+            None,
+        ]
+    )
+
     gateway.sniff()
 
 
