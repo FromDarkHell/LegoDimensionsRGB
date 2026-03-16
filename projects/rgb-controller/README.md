@@ -1,10 +1,10 @@
-## basic-rgb
+## rgb-controller
 
 This project is a simple ESP32-S3-based controller for (PS3/Wii U/PS4) LEGO Dimensions playpads.  
 Note: **This project does not emulate a full playpad. It only provides remote control of the LED colors via a web interface.**
 
-![](/firmware/basic-rgb/photos/02.jpg)  
-![](/firmware/basic-rgb/photos/04.jpg)  
+![](images/01.jpg)  
+![](images/04.png)  
 
 
 ### Features
