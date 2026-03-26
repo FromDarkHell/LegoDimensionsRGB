@@ -15,7 +15,7 @@ bool Toybox::addToy(const char* name, const int id, const char* type) {
     }
 
     if (strcmp(type, "vehicle") == 0) {
-        // TODO: Add the upgrades for this
+        // TODO: Add the upgrades for this (???)
         toys[toyCount] = new VehicleTag(id, name);
     } else if (strcmp(type, "character") == 0) {
         toys[toyCount] = new CharacterTag(id, name);
@@ -50,7 +50,6 @@ bool Toybox::removeToy(const char* uid) {
     }
 
     // Clear the last toy and decrement count
-    // toys[toyCount - 1]
     toyCount--;
     return true;
 }
@@ -79,7 +78,7 @@ ToyTag* Toybox::getByUID(const char* uid) {
     return toys[index];
 }
 
-String Toybox::serialize() const {
+JsonDocument Toybox::convertToJson() const {
     // Create a JSON document to hold all toys
     JsonDocument doc;
     JsonArray toyArray = doc.to<JsonArray>();
@@ -92,9 +91,15 @@ String Toybox::serialize() const {
         toy.set(serialized.as<JsonObjectConst>());
     }
 
-    // Serialize to string
+    return doc;
+}
+
+String Toybox::serialize() const {
+    JsonDocument doc = this->convertToJson();
+
     String result;
     serializeJson(doc, result);
+
     return result;
 }
 

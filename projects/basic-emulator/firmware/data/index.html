@@ -332,7 +332,12 @@
         <div class="modal-content">
           <span class="modal-close" data-modal-close>&times;</span>
           <div>
-            <h2>Select a Character</h2>
+            <div class="filter-bar">
+              <h2 style="margin: 0">Select a Character</h2>
+              <select id="characterFilter" class="filter-select">
+                <option value="">All Abilities</option>
+              </select>
+            </div>
             <div id="characterGrid" class="characterGrid">
               <!-- Characters will be loaded here -->
             </div>
@@ -344,7 +349,12 @@
         <div class="modal-content">
           <span class="modal-close" data-modal-close>&times;</span>
           <div>
-            <h2>Select a Vehicle</h2>
+            <div class="filter-bar">
+              <h2 style="margin: 0">Select a Vehicle</h2>
+              <select id="vehicleFilter" class="filter-select">
+                <option value="">All Abilities</option>
+              </select>
+            </div>
             <div id="vehicleGrid">
               <!-- Characters will be loaded here -->
             </div>
@@ -372,298 +382,6 @@
   </script>
 
   <script>
-    (function () {
-      // location value from JSON -> data-pad-id in the DOM
-      const LOCATION_TO_PAD_ID = { 1: 2, 2: 1, 3: 3 };
-
-      const MODE_SOLID = 0x00;
-      const MODE_FADE = 0x01;
-      const MODE_FLASH = 0x02;
-
-      // Dedicated <style> element for injected @keyframes
-      const styleEl = document.createElement("style");
-      document.head.appendChild(styleEl);
-      const sheet = styleEl.sheet;
-
-      // Track inserted rule indices by name so we can replace them
-      const keyframeIndex = {};
-
-      function rgb(c) {
-        function rgbToPerceivedColor(color) {
-          const GAMMA = 3.78;
-
-          return {
-            r: Math.round(Math.pow(color.r / 255, 1 / GAMMA) * 255),
-            g: Math.round(Math.pow(color.g / 255, 1 / GAMMA) * 255),
-            b: Math.round(Math.pow(color.b / 255, 1 / GAMMA) * 255),
-          };
-        }
-
-        cx = rgbToPerceivedColor(c);
-
-        return `rgb(${cx.r},${cx.g},${cx.b})`;
-      }
-
-      let flashSeq = 0;
-      // Insert (or replace) a @keyframes rule, return the name
-      function setKeyframes(name, body) {
-        name = `${name}-${flashSeq++}`;
-        if (keyframeIndex[name] !== undefined) {
-          try {
-            sheet.deleteRule(keyframeIndex[name]);
-          } catch (_) {}
-        }
-
-        console.log(`@keyframes ${name} { ${body} }`);
-
-        const idx = sheet.insertRule(
-          `@keyframes ${name} { ${body} }`,
-          sheet.cssRules.length,
-        );
-        keyframeIndex[name] = idx;
-        return name;
-      }
-
-      function applyToPads(padId, applyFn) {
-        document
-          .querySelectorAll(`.pad[data-pad-id="${padId}"]`)
-          .forEach(applyFn);
-      }
-
-      function applyPadColor(padId, zone) {
-        const { mode, color } = zone;
-
-        // Reset first
-        applyToPads(padId, (pad) => {
-          pad.style.animation = "none";
-          pad.style.backgroundColor = "";
-        });
-
-        if (mode === MODE_SOLID) {
-          applyToPads(padId, (pad) => {
-            pad.style.backgroundColor = rgb(color);
-          });
-        } else if (mode === MODE_FADE) {
-          const speed = zone.fade.speed ?? 10;
-          const count = zone.fade.count ?? 0;
-          const target = zone.fade.target ?? color;
-
-          // Each half-cycle duration in seconds
-          const halfDur = (speed * 0.1).toFixed(1) + "s";
-          const iters = count === 0 ? "infinite" : count;
-
-          // One half-cycle: base → target only.
-          // CSS alternate handles target → base on even iterations.
-          const name = setKeyframes(
-            `pad-fade-${padId}`,
-            `
-    0%   { background-color: ${rgb(color)}; }
-    100% { background-color: ${rgb(target)}; }
-    `,
-          );
-
-          applyToPads(padId, (pad) => {
-            if (pad._fadeEndListener) {
-              pad.removeEventListener("animationend", pad._fadeEndListener);
-              pad._fadeEndListener = null;
-            }
-
-            pad.style.animation = "none";
-            pad.style.backgroundColor = rgb(color);
-            void pad.offsetWidth;
-
-            // alternate: even iterations go base→target, odd go target→base
-            // forwards:  hold the final frame until animationend fires
-            pad.style.animation = `${name} ${halfDur} linear ${iters} alternate forwards`;
-
-            if (count !== 0) {
-              const onEnd = () => {
-                pad.style.animation = "none";
-                // Even count ends on base (last half went target→base)
-                // Odd count ends on target (last half went base→target)
-                pad.style.backgroundColor =
-                  count % 2 === 0 ? rgb(color) : rgb(target);
-                pad._fadeEndListener = null;
-              };
-              pad._fadeEndListener = onEnd;
-              pad.addEventListener("animationend", onEnd, { once: true });
-            }
-          });
-        } else if (mode === MODE_FLASH) {
-          const onTime = zone.flash.onTime ?? 255; // ticks (1 tick = 100ms)
-          const offTime = zone.flash.offTime ?? 255;
-          const count = zone.flash.count ?? 0;
-          const offColor = zone.flash.offColor ?? { r: 0, g: 0, b: 0 };
-
-          const totalTicks = onTime + offTime;
-          const dur = (totalTicks * 0.1).toFixed(1) + "s"; // ticks → seconds
-          const iters = count === 0 ? "infinite" : count;
-
-          const switchPct = (onTime / totalTicks) * 100;
-
-          const name = setKeyframes(
-            `pad-flash-${padId}`,
-            `
-  0%              { background-color: ${rgb(color)}; }
-  ${switchPct}%   { background-color: ${rgb(color)}; }
-  ${switchPct + 0.0001}% { background-color: ${rgb(offColor)}; }
-  100%            { background-color: ${rgb(offColor)}; }
-`,
-          );
-
-          applyToPads(padId, (pad) => {
-            pad.style.animation = "none";
-            pad.style.backgroundColor = rgb(color);
-            void pad.offsetWidth; // force reflow
-
-            // linear: keyframe %s directly control timing, no stepping
-            pad.style.animation = `${name} ${dur} linear ${iters}`;
-
-            if (count !== 0) {
-              pad.addEventListener(
-                "animationend",
-                () => {
-                  pad.style.animation = "none";
-                  // Cycle always ends on offColor (100% keyframe).
-                  // Even count  → last "on" phase was the final visible state → restore color
-                  // Odd count   → last "off" phase was the final visible state → keep offColor
-                  pad.style.backgroundColor =
-                    count % 2 === 0 ? rgb(color) : rgb(offColor);
-                },
-                { once: true },
-              );
-            }
-          });
-        }
-      }
-
-      let lastZones = {};
-
-      function zonesEqual(a, b) {
-        return JSON.stringify(a) === JSON.stringify(b);
-      }
-
-      function handlePadState(data) {
-        for (const zone of Object.values(data)) {
-          const padId = LOCATION_TO_PAD_ID[zone.location];
-          if (padId === undefined) continue;
-
-          if (!zonesEqual(lastZones[padId], zone)) {
-            applyPadColor(padId, zone);
-            lastZones[padId] = zone;
-          }
-        }
-      }
-
-      let _ws = null;
-      function connectWS() {
-        const statusEl = document.getElementById("ws-status");
-        const statusTextEl = document.getElementById("ws-status-text");
-
-        const PING_INTERVAL_MS = 3000; // how often the client pings
-        const PONG_TIMEOUT_MS = 6000; // how long to wait for a pong reply
-
-        let _pingInterval = null;
-        let _pongTimeout = null;
-        let _awaitingPong = false;
-
-        function setStatus(state, text) {
-          statusEl.className = state;
-          statusTextEl.textContent = text;
-        }
-
-        function sendPing() {
-          if (_ws.readyState !== WebSocket.OPEN) return;
-
-          if (_awaitingPong) {
-            console.warn("[WS] Pong not received in time");
-            setStatus("disconnected", "Disconnected");
-            stopHeartbeat();
-            _ws.close();
-            return;
-          }
-
-          _awaitingPong = true;
-          _ws.send(JSON.stringify({ type: "ping" }));
-          console.debug("[WS] Ping sent");
-
-          // If pong doesn't arrive within the timeout, next sendPing will catch it
-          _pongTimeout = setTimeout(() => {
-            if (_awaitingPong) {
-              console.warn("[WS] Pong timeout");
-              setStatus("disconnected", "No Response");
-            }
-          }, PONG_TIMEOUT_MS);
-        }
-
-        function startHeartbeat() {
-          stopHeartbeat();
-          _awaitingPong = false;
-          _pingInterval = setInterval(sendPing, PING_INTERVAL_MS);
-        }
-
-        function stopHeartbeat() {
-          if (_pingInterval !== null) {
-            clearInterval(_pingInterval);
-            _pingInterval = null;
-          }
-          if (_pongTimeout !== null) {
-            clearTimeout(_pongTimeout);
-            _pongTimeout = null;
-          }
-          _awaitingPong = false;
-        }
-
-        setStatus("connecting", "Connecting");
-
-        const url = `ws://${location.host}/ws`;
-        _ws = new WebSocket(url);
-
-        _ws.onopen = () => {
-          console.log("[WS] Connected");
-          setStatus("connected", "Connected");
-          startHeartbeat();
-        };
-
-        _ws.onmessage = (evt) => {
-          try {
-            const data = JSON.parse(evt.data);
-
-            if (data.type === "pong") {
-              console.debug("[WS] Pong received");
-              clearTimeout(_pongTimeout);
-              _pongTimeout = null;
-              _awaitingPong = false;
-              setStatus("connected", "Connected");
-              return;
-            }
-
-            handlePadState(data);
-          } catch (e) {
-            console.error("[WS] Bad message:", e);
-          }
-        };
-
-        _ws.onclose = () => {
-          console.warn("[WS] Closed");
-          setStatus("disconnected", "Disconnected");
-          stopHeartbeat();
-          setTimeout(connectWS, 2000);
-        };
-
-        _ws.onerror = (e) => {
-          console.error("[WS] Error:", e);
-          setStatus("disconnected", "Error");
-          stopHeartbeat();
-          _ws.close();
-        };
-      }
-
-      connectWS();
-    })();
-  </script>
-
-  <script>
     var characters = null;
     var vehicles = null;
 
@@ -672,134 +390,182 @@
 
     // Object to track toys on playpad: {padId: toyObject}
     var _playpadToys = {};
+
+    const _requestQueue = {
+      _chain: Promise.resolve(),
+      add(fn) {
+        this._chain = this._chain.then(fn).catch((err) => {
+          console.error("[Queue] Request failed:", err);
+        });
+        return this._chain;
+      },
+    };
+
     const playpadUpdateHandler = {
       set(target, property, value) {
-        console.log(
-          `Property '${property}' changed from '${JSON.stringify(
-            target[property],
-          )}' to '${JSON.stringify(value)}'`,
-        );
+        const oldCharacter = target[property];
+        const newCharacter = value;
 
-        var oldCharacter = target[property];
-        var newCharacter = value;
-
-        // If the old character exists, then we need to move it to the toybox (atleast, temporarily)
-        if (oldCharacter !== undefined) {
-          fetch("/playpad", {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/x-www-form-urlencoded",
-            },
-            body: new URLSearchParams({
-              uid: oldCharacter.uid,
-              index: -1,
+        // Only send a removal if the toy is going back to the toybox (index -1)
+        // For pad-to-pad moves, the backend handles the remove itself
+        if (oldCharacter !== undefined && newCharacter === undefined) {
+          _requestQueue.add(() =>
+            fetch("/playpad", {
+              method: "PUT",
+              headers: { "Content-Type": "application/x-www-form-urlencoded" },
+              body: new URLSearchParams({ uid: oldCharacter.uid, index: -1 }),
             }),
-          });
+          );
         }
 
         if (newCharacter !== undefined) {
-          fetch("/playpad", {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/x-www-form-urlencoded",
-            },
-            body: new URLSearchParams({
-              uid: newCharacter.uid,
-              index: property,
+          _requestQueue.add(() =>
+            fetch("/playpad", {
+              method: "PUT",
+              headers: { "Content-Type": "application/x-www-form-urlencoded" },
+              body: new URLSearchParams({
+                uid: newCharacter.uid,
+                index: property,
+              }),
             }),
-          });
+          );
         }
 
-        // Now it would be time to update the new character to the toypad / elsewhere
-        target[property] = value; // Apply the change
-        return true; // Indicate success
+        target[property] = value;
+        return true;
       },
     };
 
     var playpadToys = new Proxy(_playpadToys, playpadUpdateHandler);
 
+    // Populated once the JSON loads — keyed by grid_type
+    const _allTags = { character: [], vehicle: [] };
+
+    function populateFilterDropdown(grid_type, tags) {
+      const select = document.getElementById(`${grid_type}Filter`);
+
+      // Collect every unique ability across all tags
+      const abilities = new Set();
+      tags.forEach((tag) => {
+        const builds =
+          grid_type === "vehicle" ? [tag].concat(tag.rebuilds ?? []) : [tag];
+        builds.forEach((b) =>
+          (b.abilities ?? []).forEach((a) => abilities.add(a)),
+        );
+      });
+
+      // Preserve current selection if it still exists after a reload
+      const current = select.value;
+      select.innerHTML = `<option value="">All Abilities</option>`;
+
+      [...abilities]
+        .filter((x) => x !== "")
+        .sort()
+        .forEach((ability) => {
+          const opt = document.createElement("option");
+          opt.value = ability;
+          opt.textContent = ability;
+          select.appendChild(opt);
+        });
+
+      if (current && abilities.has(current)) select.value = current;
+    }
+
+    function getFilteredTags(grid_type) {
+      const select = document.getElementById(`${grid_type}Filter`);
+      const chosen = select ? select.value : "";
+      const tags = _allTags[grid_type];
+
+      if (!chosen) return tags;
+
+      return tags.filter((tag) => {
+        const builds =
+          grid_type === "vehicle" ? [tag].concat(tag.rebuilds ?? []) : [tag];
+        return builds.some((b) => (b.abilities ?? []).includes(chosen));
+      });
+    }
+
     function updateGrid(grid_type, tags) {
       const grid = document.getElementById(`${grid_type}Grid`);
       grid.innerHTML = "";
 
-      tags.sort((a, b) => a.name.localeCompare(b.name));
+      const sorted = [...tags].sort((a, b) => a.name.localeCompare(b.name));
 
-      tags.forEach((tag) => {
+      sorted.forEach((tag) => {
         const option = document.createElement("div");
         option.className = "character-option";
 
-        if (grid_type == "character") {
+        if (grid_type === "character") {
           option.innerHTML = `
-                    <img src="/images/${grid_type}s/${tag.id
-                      .toString()
-                      .padStart(4, "0")}.webp" alt="${tag.name}" >
-                    <p>${tag.name}</p>
-                `;
-
-          option.addEventListener("click", (evt) => {
-            createNewToy(evt.target, tag, grid_type);
-          });
+                <img src="/images/${grid_type}s/${tag.id.toString().padStart(4, "0")}.webp"
+                     alt="${tag.name}">
+                <p>${tag.name}</p>
+            `;
+          option.addEventListener("click", (evt) =>
+            createNewToy(evt.target, tag, grid_type),
+          );
         }
 
-        if (grid_type == "vehicle") {
-          contents = [];
-
-          for (var build of [tag].concat(tag.rebuilds)) {
+        if (grid_type === "vehicle") {
+          const contents = [];
+          for (const build of [tag].concat(tag.rebuilds ?? [])) {
             const el = document.createElement("div");
             el.className = "character-option";
-            el.addEventListener("click", (evt) => {
-              createNewToy(evt.target, tag, grid_type);
-            });
-            el.innerHTML = `<img src="/images/${grid_type}s/${build.id
-              .toString()
-              .padStart(4, "0")}.webp" alt="${build.name}" >
-                    <p>${build.name}</p>`;
-
+            el.addEventListener("click", (evt) =>
+              createNewToy(evt.target, build, grid_type),
+            );
+            el.innerHTML = `
+                    <img src="/images/${grid_type}s/${build.id.toString().padStart(4, "0")}.webp"
+                         alt="${build.name}">
+                    <p>${build.name}</p>
+                `;
             contents.push(el);
           }
 
-          // Vehicles require slightly different logic lol
           option.innerHTML = `
-            <details>
-              <summary style="display: flex; flex-direction: row; gap: 1em; justify-content: center; align-items: center">
-                <img src="/images/${grid_type}s/${tag.id
-                  .toString()
-                  .padStart(
-                    4,
-                    "0",
-                  )}.webp" alt="${tag.name}"  height="64" width="64">
-                <div>${tag.name}</div>
-              </summary>
-              <div style="display: flex; flex-direction: row; gap: 1em; justify-content: center; align-items: center; margin: 20px 0">
-              </div>
-            </details>
-          `;
-
-          // Then append each element from the contents array
-          const contentContainer = option.querySelector(
-            'div[style*="margin: 20px 0"]',
-          );
-          contents.forEach((element) => {
-            contentContainer.appendChild(element);
-          });
+                <details>
+                  <summary style="display:flex;flex-direction:row;gap:1em;
+                                  justify-content:center;align-items:center">
+                    <img src="/images/${grid_type}s/${tag.id.toString().padStart(4, "0")}.webp"
+                         alt="${tag.name}" height="64" width="64">
+                    <div>${tag.name}</div>
+                  </summary>
+                  <div style="display:flex;flex-direction:row;gap:1em;
+                              justify-content:center;align-items:center;margin:20px 0">
+                  </div>
+                </details>
+            `;
+          option
+            .querySelector('div[style*="margin: 20px 0"]')
+            ?.append(...contents);
         }
 
         grid.appendChild(option);
       });
     }
 
-    fetch("/json/characters.json").then(async (data) => {
-      characters = await data.json();
-      console.log(`Loaded character data...`);
+    function refreshGrid(grid_type) {
+      updateGrid(grid_type, getFilteredTags(grid_type));
+    }
 
-      updateGrid("character", characters);
+    // Wire up the dropdowns
+    document
+      .getElementById("characterFilter")
+      .addEventListener("change", () => refreshGrid("character"));
+    document
+      .getElementById("vehicleFilter")
+      .addEventListener("change", () => refreshGrid("vehicle"));
+
+    fetch("/json/characters.json").then(async (res) => {
+      _allTags.character = await res.json();
+      populateFilterDropdown("character", _allTags.character);
+      refreshGrid("character");
     });
 
-    fetch("/json/vehicles.json").then(async (data) => {
-      vehicles = await data.json();
-      console.log(`Loaded vehicle data...`);
-
-      updateGrid("vehicle", vehicles);
+    fetch("/json/vehicles.json").then(async (res) => {
+      _allTags.vehicle = await res.json();
+      populateFilterDropdown("vehicle", _allTags.vehicle);
+      refreshGrid("vehicle");
     });
 
     // Sends a new request to the server, creating a new toy for inside the toybox
@@ -990,6 +756,7 @@
         `Swapped toys: ${sourceToy.name} and ${targetToy.name} between pads ${sourcePadId} and ${targetPadId}`,
       );
     }
+
     function handleToyOnPadClick(e, padId) {
       e.stopPropagation();
 
@@ -1106,8 +873,301 @@
       }
     }
 
+    // location value from JSON -> data-pad-id in the DOM
+    const LOCATION_TO_PAD_ID = { 1: 2, 2: 1, 3: 3 };
+
+    const MODE_SOLID = 0x00;
+    const MODE_FADE = 0x01;
+    const MODE_FLASH = 0x02;
+
+    // Dedicated <style> element for injected @keyframes
+    const styleEl = document.createElement("style");
+    document.head.appendChild(styleEl);
+    const sheet = styleEl.sheet;
+
+    // Track inserted rule indices by name so we can replace them
+    const keyframeIndex = {};
+
+    function rgb(c) {
+      function rgbToPerceivedColor(color) {
+        const GAMMA = 3.78;
+
+        return {
+          r: Math.round(Math.pow(color.r / 255, 1 / GAMMA) * 255),
+          g: Math.round(Math.pow(color.g / 255, 1 / GAMMA) * 255),
+          b: Math.round(Math.pow(color.b / 255, 1 / GAMMA) * 255),
+        };
+      }
+
+      cx = rgbToPerceivedColor(c);
+
+      return `rgb(${cx.r},${cx.g},${cx.b})`;
+    }
+
+    let flashSeq = 0;
+    // Insert (or replace) a @keyframes rule, return the name
+    function setKeyframes(name, body) {
+      name = `${name}-${flashSeq++}`;
+      if (keyframeIndex[name] !== undefined) {
+        try {
+          sheet.deleteRule(keyframeIndex[name]);
+        } catch (_) {}
+      }
+
+      console.log(`@keyframes ${name} { ${body} }`);
+
+      const idx = sheet.insertRule(
+        `@keyframes ${name} { ${body} }`,
+        sheet.cssRules.length,
+      );
+      keyframeIndex[name] = idx;
+      return name;
+    }
+
+    function applyToPads(padId, applyFn) {
+      document
+        .querySelectorAll(`.pad[data-pad-id="${padId}"]`)
+        .forEach(applyFn);
+    }
+
+    function applyPadColor(padId, zone) {
+      const { mode, color } = zone;
+
+      // Reset first
+      applyToPads(padId, (pad) => {
+        pad.style.animation = "none";
+        pad.style.backgroundColor = "";
+      });
+
+      if (mode === MODE_SOLID) {
+        applyToPads(padId, (pad) => {
+          pad.style.backgroundColor = rgb(color);
+        });
+      } else if (mode === MODE_FADE) {
+        const speed = zone.fade.speed ?? 10;
+        const count = zone.fade.count ?? 0;
+        const target = zone.fade.target ?? color;
+
+        // Each half-cycle duration in seconds
+        const halfDur = (speed * 0.1).toFixed(1) + "s";
+        const iters = count === 0 ? "infinite" : count;
+
+        // One half-cycle: base → target only.
+        // CSS alternate handles target → base on even iterations.
+        const name = setKeyframes(
+          `pad-fade-${padId}`,
+          `
+    0%   { background-color: ${rgb(color)}; }
+    100% { background-color: ${rgb(target)}; }
+    `,
+        );
+
+        applyToPads(padId, (pad) => {
+          if (pad._fadeEndListener) {
+            pad.removeEventListener("animationend", pad._fadeEndListener);
+            pad._fadeEndListener = null;
+          }
+
+          pad.style.animation = "none";
+          pad.style.backgroundColor = rgb(color);
+          void pad.offsetWidth;
+
+          // alternate: even iterations go base→target, odd go target→base
+          // forwards:  hold the final frame until animationend fires
+          pad.style.animation = `${name} ${halfDur} linear ${iters} alternate forwards`;
+
+          if (count !== 0) {
+            const onEnd = () => {
+              pad.style.animation = "none";
+              // Even count ends on base (last half went target→base)
+              // Odd count ends on target (last half went base→target)
+              pad.style.backgroundColor =
+                count % 2 === 0 ? rgb(color) : rgb(target);
+              pad._fadeEndListener = null;
+            };
+            pad._fadeEndListener = onEnd;
+            pad.addEventListener("animationend", onEnd, { once: true });
+          }
+        });
+      } else if (mode === MODE_FLASH) {
+        const onTime = zone.flash.onTime ?? 255; // ticks (1 tick = 100ms)
+        const offTime = zone.flash.offTime ?? 255;
+        const count = zone.flash.count ?? 0;
+        const offColor = zone.flash.offColor ?? { r: 0, g: 0, b: 0 };
+
+        const totalTicks = onTime + offTime;
+        const dur = (totalTicks * 0.1).toFixed(1) + "s"; // ticks → seconds
+        const iters = count === 0 ? "infinite" : count;
+
+        const switchPct = (onTime / totalTicks) * 100;
+
+        const name = setKeyframes(
+          `pad-flash-${padId}`,
+          `
+  0%              { background-color: ${rgb(color)}; }
+  ${switchPct}%   { background-color: ${rgb(color)}; }
+  ${switchPct + 0.0001}% { background-color: ${rgb(offColor)}; }
+  100%            { background-color: ${rgb(offColor)}; }
+`,
+        );
+
+        applyToPads(padId, (pad) => {
+          pad.style.animation = "none";
+          pad.style.backgroundColor = rgb(color);
+          void pad.offsetWidth; // force reflow
+
+          // linear: keyframe %s directly control timing, no stepping
+          pad.style.animation = `${name} ${dur} linear ${iters}`;
+
+          if (count !== 0) {
+            pad.addEventListener(
+              "animationend",
+              () => {
+                pad.style.animation = "none";
+                // Cycle always ends on offColor (100% keyframe).
+                // Even count  → last "on" phase was the final visible state → restore color
+                // Odd count   → last "off" phase was the final visible state → keep offColor
+                pad.style.backgroundColor =
+                  count % 2 === 0 ? rgb(color) : rgb(offColor);
+              },
+              { once: true },
+            );
+          }
+        });
+      }
+    }
+
+    let lastZones = {};
+
+    function zonesEqual(a, b) {
+      return JSON.stringify(a) === JSON.stringify(b);
+    }
+
+    function handlePadState(data) {
+      for (const zone of Object.values(data)) {
+        const padId = LOCATION_TO_PAD_ID[zone.location];
+        if (padId === undefined) continue;
+
+        if (!zonesEqual(lastZones[padId], zone)) {
+          applyPadColor(padId, zone);
+          lastZones[padId] = zone;
+        }
+      }
+    }
+
+    let _ws = null;
+    function connectWS() {
+      const statusEl = document.getElementById("ws-status");
+      const statusTextEl = document.getElementById("ws-status-text");
+
+      const PING_INTERVAL_MS = 3000; // how often the client pings
+      const PONG_TIMEOUT_MS = 6000; // how long to wait for a pong reply
+
+      let _pingInterval = null;
+      let _pongTimeout = null;
+      let _awaitingPong = false;
+
+      function setStatus(state, text) {
+        statusEl.className = state;
+        statusTextEl.textContent = text;
+      }
+
+      function sendPing() {
+        if (_ws.readyState !== WebSocket.OPEN) return;
+
+        if (_awaitingPong) {
+          console.warn("[WS] Pong not received in time");
+          setStatus("disconnected", "Disconnected");
+          stopHeartbeat();
+          _ws.close();
+          return;
+        }
+
+        _awaitingPong = true;
+        _ws.send(JSON.stringify({ type: "ping" }));
+        console.debug("[WS] Ping sent");
+
+        // If pong doesn't arrive within the timeout, next sendPing will catch it
+        _pongTimeout = setTimeout(() => {
+          if (_awaitingPong) {
+            console.warn("[WS] Pong timeout");
+            setStatus("disconnected", "No Response");
+          }
+        }, PONG_TIMEOUT_MS);
+      }
+
+      function startHeartbeat() {
+        stopHeartbeat();
+        _awaitingPong = false;
+        _pingInterval = setInterval(sendPing, PING_INTERVAL_MS);
+      }
+
+      function stopHeartbeat() {
+        if (_pingInterval !== null) {
+          clearInterval(_pingInterval);
+          _pingInterval = null;
+        }
+        if (_pongTimeout !== null) {
+          clearTimeout(_pongTimeout);
+          _pongTimeout = null;
+        }
+        _awaitingPong = false;
+      }
+
+      setStatus("connecting", "Connecting");
+
+      const url = `ws://${location.host}/ws`;
+      _ws = new WebSocket(url);
+
+      _ws.onopen = () => {
+        console.log("[WS] Connected");
+        setStatus("connected", "Connected");
+        startHeartbeat();
+      };
+
+      _ws.onmessage = (evt) => {
+        try {
+          const data = JSON.parse(evt.data);
+
+          if (data.type === "pong") {
+            console.debug("[WS] Pong received");
+            clearTimeout(_pongTimeout);
+            _pongTimeout = null;
+            _awaitingPong = false;
+            setStatus("connected", "Connected");
+            return;
+          }
+
+          if (data.type === "toybox") {
+            toybox = data.toybox;
+            renderToybox(true);
+          }
+
+          handlePadState(data);
+        } catch (e) {
+          console.error("[WS] Bad message:", e);
+        }
+      };
+
+      _ws.onclose = () => {
+        console.warn("[WS] Closed");
+        setStatus("disconnected", "Disconnected");
+        stopHeartbeat();
+        setTimeout(connectWS, 2000);
+      };
+
+      _ws.onerror = (e) => {
+        console.error("[WS] Error:", e);
+        setStatus("disconnected", "Error");
+        stopHeartbeat();
+        _ws.close();
+      };
+    }
+
     // Initialize the system
     function init() {
+      connectWS();
+
       updateToybox();
 
       // Deselect when clicking outside any pad or toybox item

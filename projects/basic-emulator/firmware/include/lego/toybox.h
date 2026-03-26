@@ -19,6 +19,7 @@ class Toybox {
     ToyTag* getToy(size_t index);
     ToyTag* getByUID(const char* uid);
 
+    JsonDocument convertToJson() const;
     String serialize() const;
     bool deserialize(const char* json);
 

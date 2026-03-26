@@ -371,3 +371,22 @@ button:hover {
   border-radius: 50%;
   background: currentColor;
 }
+
+/* Filtering */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  margin-bottom: 1em;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.filter-select {
+  padding: 0.4em 0.6em;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 0.9em;
+  box-sizing: border-box;
+  min-height: 2.5em;
+}

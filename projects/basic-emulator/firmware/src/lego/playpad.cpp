@@ -299,6 +299,14 @@ void PlayPad::_notifyPadStateChange() {
     _padStateCallback(json);
 }
 
+void PlayPad::_notifyTagStateChange(const ToyTag* updatedTag) {
+    if (!_tagStateCallback) {
+        return;
+    }
+
+    _tagStateCallback(updatedTag);
+}
+
 void PlayPad::_handleWake(const CommandPacket& packet) {
     log_dbg("[PlayPad] WAKE command received. Payload: %s", packet.payloadToHexString());
 
@@ -308,6 +316,11 @@ void PlayPad::_handleWake(const CommandPacket& packet) {
     ResponsePacket response =
         ResponsePacket::build(packet.cid(), WAKE_RESPONSE, sizeof(WAKE_RESPONSE));
     sendPacket(response);
+
+    // Send tag-placed events for every tag on the playpad currently.
+    for (int i = 0; i < _placedCount; i++) {
+        this->tagChangeEvent(_placedTokens[i].tag, TagIndex::Unplaced);
+    }
 }
 
 void PlayPad::_handleSeed(const CommandPacket& packet) {
@@ -346,6 +359,8 @@ void PlayPad::_handleCol(const CommandPacket& packet) {
 
     ResponsePacket blank = ResponsePacket::blank(packet.cid());
     sendPacket(blank);
+
+    _padStateDirty = true;
 }
 
 void PlayPad::_handleColAll(const CommandPacket& packet) {
@@ -632,4 +647,6 @@ void PlayPad::_handleWrite(const CommandPacket& packet) {
                 break;
         }
     }
+
+    this->_notifyTagStateChange(pt->tag);
 }

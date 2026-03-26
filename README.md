@@ -1,25 +1,19 @@
 ## LegoDimensionsRGB
 
-This project is a reverse-engineered conversion of a Lego Dimensions (PS3 / Wii U) playpad, in order to keep the respective playpad lights consistently-on.  
-It's powered using an ESP32-S3 which lets you change the color easily via a simple web frontend.  
+This project is a reverse-engineered implementation of a LEGO Dimensions (currently *only* PS3 / Wii U) playpad.  
+This project also includes a simpler project which communicates with an OEM playpad to act as a lamp/night-light, as well as a Python script for communication as well.
 
 ### Project Layout
+Inside of `projects`, you can see a few different sub-projects which each have their own purpose.
 
-There's multiple (planned) board versions; The main / simplest one is `basic-rgb` which allows you to use the ESP32-S3 to control the Playpad's LEDs via a web interface.  
-
-- `firmware` contains the PlatformIO project for the various board versions
-- `schematic` contains the KiCad PCB projects for the various board versions.
-- `scripts` contains a folder with various Python scripts used for controlling an authentic Lego Dimensions Playpad.
-- `reversing` contains another KiCad project which has a vaguely correct, reverse engineered PCB of an original PS3 / Wii U Playpad
-
-#### basic-rgb
-
-This is a basic board which uses the ESP32-S3's D-/D+ lines to connect to a playpad and send basic color change commands.  
-![A Lego Dimensions Playpad lit up powered by an ESP32-S3](/firmware/basic-rgb/photos/01.jpg)  
-For more info, go to the [basic-rgb](/firmware/README.md#basic-rgb)
+- [basic-emulator](/projects/basic-emulator/) is an implementation of the playpad HID spec, running on a Raspberry Pi Pico W, alongside a Web UI for easy controls.
+- [rgb-controller](/projects/rgb-controller/) is a simpler project which sends basic USB HID commands *to* an existing, stock playpad for use as a lamp. This is powered by an ESP32-S3, and comes with a simple Web UI for controlling colors.
 
 ### Credits
-This project is predominantly based on [woodenphone/lego_dimensions_protocol](https://github.com/woodenphone/lego_dimensions_protocol/blob/master/lego_dimensions_gateway.py). The main difference is that I have updated it to support Python 3 as well as added a `connected()` status function to determine if the playpad was disconnected.
+
+A large portion of the emulator project is based on [AlinaNova21/node-ld](https://github.com/AlinaNova21/node-ld/tree/master), as well as [Berny23/LD-Toypad-Emulator](https://github.com/Berny23/LD-ToyPad-Emulator).
+
+The Python tools is predominantly based on [woodenphone/lego_dimensions_protocol](https://github.com/woodenphone/lego_dimensions_protocol/blob/master/lego_dimensions_gateway.py). The main difference is that I have updated it to support Python 3 as well as added a `connected()` status function to determine if the playpad was disconnected.
 
 ### Support
 

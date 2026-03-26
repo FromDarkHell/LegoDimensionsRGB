@@ -383,6 +383,20 @@ bool LegoServer::load_toybox() {
     bool result = this->toybox->deserialize(json);
     free((void*)json);
 
+    if (playpad != nullptr) {
+        playpad->onTagStateChange([this](const ToyTag* updated) { this->_toyboxDirty = true; });
+
+        // Now that we've loaded the toybox, we can send all of the toybox tag-updates to the
+        // playpad.
+        // This way the playpad knows who is on what tag index.
+        for (size_t i = 0; i < this->toybox->count(); i++) {
+            ToyTag* tag = this->toybox->getToy(i);
+            if (tag->padIndex != TagIndex::Unplaced || tag->padIndex != TagIndex::INVALID) {
+                playpad->tagChangeEvent(tag, TagIndex::Unplaced);
+            }
+        }
+    }
+
     return result;
 }
 
@@ -396,6 +410,21 @@ bool LegoServer::store_toybox() {
     bool success = fs_write("/toybox.json", content);
     if (!success) {
         log_warn("[LegoServer::store_toybox] Failed to write toybox cache file");
+    }
+
+    if (ws.count() != 0) {
+        log_dbg("[LegoServer] Broadcasting toybox state update to %u client(s)", ws.count());
+
+        JsonDocument wsDoc;
+        JsonObject wsObj = wsDoc.to<JsonObject>();
+
+        wsObj["type"] = "toybox";
+        wsObj["toybox"] = this->toybox->convertToJson();
+
+        String result;
+        serializeJson(wsObj, result);
+
+        ws.textAll(result);
     }
 
     return success;

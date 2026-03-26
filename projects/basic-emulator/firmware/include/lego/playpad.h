@@ -109,6 +109,13 @@ class PlayPad {
      */
     void onPadStateChange(std::function<void(const String&)> cb) { _padStateCallback = cb; }
 
+    /**
+     * @brief Registers a callback that fires whenever any tag data is updated
+     *
+     * @param cb  Called with an instance of the modified ToyTag
+     */
+    void onTagStateChange(std::function<void(const ToyTag*)> cb) { _tagStateCallback = cb; }
+
    private:
     /**
      * @brief The Adafruit_USBD_HID instance that manages the USB HID interface. This is configured
@@ -240,6 +247,17 @@ class PlayPad {
      *
      */
     void _notifyPadStateChange();
+
+    std::function<void(const ToyTag*)> _tagStateCallback = nullptr;
+    bool _tagStateDirty = false;
+
+    /**
+     * @brief An internal function used for updating the tag state after any major change (writes,
+     * etc)
+     *
+     * @param updatedTag A non-owning pointer reference to the updated tag
+     */
+    void _notifyTagStateChange(const ToyTag* updatedTag);
 
     /**
      * @brief A static pointer to the single instance of the PlayPad class. This is used in the

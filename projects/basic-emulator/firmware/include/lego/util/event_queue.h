@@ -86,7 +86,7 @@ class EventQueue {
 
     uint8_t count() const { return _count; }
 
-   private:
+      private:
     EventPacket _slots[MAX_EVENTS];
     uint8_t _head;
     uint8_t _tail;
