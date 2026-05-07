@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <led/led_controller.h>
 #include "config/config.h"
 #include "lego/playpad.h"
 #include "log/logger.h"
@@ -9,6 +10,8 @@
 CaptivePortal* initializationPortal = nullptr;
 LegoServer* webServer = nullptr;
 PlayPad playPad;
+
+PlaypadLEDController<4> padLEDs(&playPad, {3, 1, 3});
 
 void create_captive_portal() {
     logger.blinkStatus(5, 1000);
@@ -33,6 +36,8 @@ void setup() {
     log_init();
     config.init();
 
+    padLEDs.begin();
+
     if (config.getBool("initialized", false)) {
         log_dbg("[setup] Device already initialized, skipping captive portal...");
         logger.blinkStatus(2, 100);
@@ -47,6 +52,7 @@ void setup() {
 void loop() {
     // Updates the current USB state (i.e. sending events/etc/etc)
     playPad.update();
+    padLEDs.update();
 
     if (initializationPortal != nullptr) {
         // For the sake of seeing if the portal is initialized, just blink the LED on/off while we
@@ -94,3 +100,26 @@ void loop() {
     TinyUSBDevice.task();
 #endif
 }
+
+// #include <FastLED.h>
+
+// #define NUM_LEDS 1
+// #define DATA_PIN 4  // GPIO number, not physical pin number!
+
+// CRGB leds[NUM_LEDS];
+
+// void setup() {
+//     FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);
+//     leds[0] = CRGB::Blue;
+//     FastLED.show();
+//     delay(100);
+//     FastLED.show();  // second call to ensure PIO is initialized properly
+// }
+// void loop() {
+//     leds[0] = CRGB::Blue;
+//     FastLED.show();
+//     delay(500);
+//     leds[0] = CRGB::Black;
+//     FastLED.show();
+//     delay(500);
+// }

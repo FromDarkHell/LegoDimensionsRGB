@@ -116,6 +116,7 @@ void LegoServer::start_web() {
                 // Resolve file path from query param, e.g. POST /upload?path=/index.html
                 if (request->hasParam("path")) {
                     filePath = request->getParam("path")->value();
+
                     // Ensure it starts with a leading slash
                     if (!filePath.startsWith("/")) {
                         filePath = "/" + filePath;
@@ -138,6 +139,10 @@ void LegoServer::start_web() {
                 if (filePath == "/index.html") {
                     free((void*)this->html);
                     this->html = strdup(body.c_str());
+                }
+                if (filePath == "/style.css") {
+                    free((void*)this->css);
+                    this->css = strdup(body.c_str());
                 }
 
                 request->send(200, "text/plain", "Uploaded " + filePath);

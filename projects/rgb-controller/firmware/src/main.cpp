@@ -4,7 +4,7 @@
 #include "config/config.h"
 #include "fs/fs.h"
 #include "log/logger.h"
-#include "playpad/playpad.h"
+#include "toypad/toypad.h"
 
 CaptivePortal* initializationPortal = nullptr;
 LegoServer* webServer = nullptr;
@@ -19,6 +19,9 @@ void setup() {
     log_init();
     config_init();
     spiffs_init();
+
+    // Bring up the USB host and connect to the playpad
+    toypad.begin();
 
     if (!config_get_bool("initialized", false)) {
         create_captive_portal();
@@ -56,12 +59,11 @@ void loop() {
         }
 
         assert(webServer->success);
-
-        playpad_init();
     }
 
     if (webServer != nullptr) {
         webServer->loop();
-        playpad_loop();
     }
+
+    toypad.loop();
 }

@@ -1,8 +1,13 @@
 import array
 import platform
 import time
-from typing import List, Optional, Tuple
+from typing import Dict, List, Literal, Optional, Tuple, Union
 import usb.core
+
+USB_IDS: Dict[str, Tuple[int, int]] = {
+    "xbox_360": (0x24C6, 0xFA01),
+    "ps3": (0x0E6F, 0x0241),
+}
 
 
 class Gateway:
@@ -10,24 +15,30 @@ class Gateway:
 
     ZONE_MAP = {0x1: "center", 0x2: "left", 0x3: "right"}
 
-    VENDOR_ID = 0x0E6F
-    PRODUCT_ID = 0x0241
     MAX_LENGTH = 0x20
 
-    def __init__(self, verbose: bool = True):
+    def __init__(
+        self, platform: Union[Literal["xbox_360"], Literal["ps3"]], verbose: bool = True
+    ):
         self.verbose = verbose
         self.used_kernel_driver = False
         self._cid = 0
+
+        self.VENDOR_ID, self.PRODUCT_ID = USB_IDS[platform]
+        self.platform = platform
 
         # Initialise USB connection to the device
         self.dev = self._init_usb()
 
         # Reset the state of the device to all pads off
-        self.clear_pads()
+        # self.clear_pads()
 
     def __del__(self):
         if self.used_kernel_driver:
             self.dev.attach_kernel_driver(0)
+
+    def _bytes_to_hex(self, bytes) -> str:
+        return " ".join(format(x, "02X") for x in bytes)
 
     def _init_usb(self):
         """
@@ -36,7 +47,7 @@ class Gateway:
         # Let's try and find the USB Device
 
         # Vendor ID: 0x0E6F (Logic3)
-        dev = usb.core.find(idVendor=Gateway.VENDOR_ID, idProduct=Gateway.PRODUCT_ID)
+        dev = usb.core.find(idVendor=self.VENDOR_ID, idProduct=self.PRODUCT_ID)
 
         # Double check that the device was found
         if dev is None:
@@ -56,12 +67,13 @@ class Gateway:
         dev.set_configuration()
         self.dev = dev
 
+        print(f"{self.dev}")
+
         # Startup
         _ENCODED = "(c) LEGO 2014".encode("ascii")
         self._send_command([0xB0, self.get_cid(), *_ENCODED])
         response = dev.read(0x81, Gateway.MAX_LENGTH, timeout=1_000)
-        print(f"{bytes(response).hex()}")
-
+        print(f"Received init response: {self._bytes_to_hex(response)}")
         return dev
 
     def _send_command(self, command: List[int]):
@@ -73,7 +85,7 @@ class Gateway:
                 command.insert(0, 0x55)
                 command.insert(1, len(command) - 1)
 
-            assert len(command) <= 31
+            assert len(command) <= (29 if self.platform == "xbox_360" else 31)
 
             checksum = 0
             for word in command:
@@ -83,6 +95,9 @@ class Gateway:
 
             message = [*command, checksum]
 
+            if self.platform == "xbox_360":
+                message = [0x0B, 0x16, *message]
+
             assert len(message) <= 32
             while len(message) < 32:
                 message.append(0x00)
@@ -90,10 +105,12 @@ class Gateway:
             return message
 
         packet = convert_to_packet(command)
+
+        print(f"Sending packet: {self._bytes_to_hex(packet)}")
         self.dev.write(1, packet)
 
     def connected(self) -> bool:
-        dev = usb.core.find(idVendor=Gateway.VENDOR_ID, idProduct=Gateway.PRODUCT_ID)
+        dev = usb.core.find(idVendor=self.VENDOR_ID, idProduct=self.PRODUCT_ID)
         if dev == None:
             return False
 

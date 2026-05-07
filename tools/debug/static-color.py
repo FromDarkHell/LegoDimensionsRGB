@@ -17,7 +17,7 @@ def main():
 
     while True:
         try:
-            gateway = Gateway(verbose=True)
+            gateway = Gateway(platform="xbox_360", verbose=True)
 
             gateway.switch_pad(0, color_tuple)
 

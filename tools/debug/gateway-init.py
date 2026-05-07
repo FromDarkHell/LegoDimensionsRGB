@@ -5,7 +5,7 @@ from gateway import Gateway
 
 
 def main():
-    gateway = Gateway()
+    gateway = Gateway(platform="xbox_360")
 
     if False:
         gateway.switch_pad(0, (255, 0, 255))
@@ -35,24 +35,24 @@ def main():
                 (0, 1, (255, 255, 255)),  # Right Pad = Stays Blue
             ]
         )
+    elif False:
+        gateway.fade_pads(
+            [
+                (0, 1, (0, 0, 24)),  # Center Pad = Blue
+                None,
+                None,
+            ]
+        )
 
-    gateway.fade_pads(
-        [
-            (0, 1, (0, 0, 24)),  # Center Pad = Blue
-            None,
-            None,
-        ]
-    )
+        time.sleep(5)
 
-    time.sleep(5)
-
-    gateway.fade_pads(
-        [
-            (0, 1, (0, 0, 255)),  # Center Pad = Blue
-            None,
-            None,
-        ]
-    )
+        gateway.fade_pads(
+            [
+                (0, 1, (0, 0, 255)),  # Center Pad = Blue
+                None,
+                None,
+            ]
+        )
 
     gateway.sniff()
 

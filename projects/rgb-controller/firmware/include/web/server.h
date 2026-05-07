@@ -14,7 +14,7 @@
 #include "config/config.h"
 #include "fs/fs.h"
 #include "log/logger.h"
-#include "playpad/playpad.h"
+#include "toypad/toypad.h"
 
 class LegoServer {
    public:

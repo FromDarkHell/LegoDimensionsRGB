@@ -199,6 +199,15 @@ button:hover {
 
 .toy-on-pad {
   position: relative;
+  max-width: 9em;
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+}
+
+.toy-on-pad-image {
+  object-fit: contain;
+  width: 100%;
 }
 
 .pad-toy-actions {
@@ -273,7 +282,7 @@ button:hover {
 
 #vehicleGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(600px, 1fr));
+  grid-template-columns: 1fr;
   gap: 1em;
   margin: 20px 0;
   max-height: 50vh;
@@ -327,12 +336,12 @@ button:hover {
   border-radius: 0.5rem;
 
   height: 9em;
-  width: 9em;
   display: flex;
   align-items: center;
   justify-content: center;
   background-color: #6e6e6e;
   margin: 0 0.5em;
+  flex-wrap: wrap;
 }
 
 /* WebSocket Status/Pings */
