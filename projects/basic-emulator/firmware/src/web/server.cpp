@@ -1,6 +1,6 @@
 #include "web/server.h"
 
-LegoServer::LegoServer(const char* ssid, const char* password, PlayPad* playpadInstance) {
+LegoServer::LegoServer(const char* ssid, const char* password, Toypad* playpadInstance) {
     this->ssid = strdup(ssid);
     this->password = strdup(password);
     this->html = fs_read("/index.html");

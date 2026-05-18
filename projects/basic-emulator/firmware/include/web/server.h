@@ -13,13 +13,13 @@
 #include <LEAmDNS.h>
 #include "config/config.h"
 #include "fs/fs.h"
-#include "lego/playpad.h"
 #include "lego/toybox.h"
+#include "lego/toypad.h"
 #include "log/logger.h"
 
 class LegoServer {
    public:
-    LegoServer(const char*, const char*, PlayPad*);
+    LegoServer(const char*, const char*, Toypad*);
     ~LegoServer();
 
     void initialize();
@@ -52,5 +52,5 @@ class LegoServer {
     uint32_t _lastStoreMs = 0;
     static constexpr uint32_t STORE_DEBOUNCE_MS = 2000;
 
-    PlayPad* playpad = nullptr;
+    Toypad* playpad = nullptr;
 };

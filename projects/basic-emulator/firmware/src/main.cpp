@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <led/led_controller.h>
 #include "config/config.h"
-#include "lego/playpad.h"
+#include "lego/toypad.h"
 #include "log/logger.h"
 #include "RP2040Support.h"
 #include "web/captive_portal.h"
@@ -9,7 +9,7 @@
 
 CaptivePortal* initializationPortal = nullptr;
 LegoServer* webServer = nullptr;
-PlayPad playPad;
+Toypad playPad;
 
 PlaypadLEDController<4> padLEDs(&playPad, {3, 1, 3});
 

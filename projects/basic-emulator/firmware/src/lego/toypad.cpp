@@ -1,14 +1,14 @@
-#include "lego/playpad.h"
+#include "lego/toypad.h"
 #include "log/logger.h"
 
-PlayPad* PlayPad::_instance = nullptr;
+Toypad* Toypad::_instance = nullptr;
 
-PlayPad::PlayPad() {
+Toypad::Toypad() {
     _instance = this;
     this->_registerHandlers();
 }
 
-void PlayPad::begin() {
+void Toypad::begin() {
     if (!TinyUSBDevice.isInitialized()) {
         TinyUSBDevice.begin(0);
     }
@@ -27,7 +27,7 @@ void PlayPad::begin() {
     this->_crypto.setKey(this->TEA_KEY);
 }
 
-void PlayPad::update() {
+void Toypad::update() {
     // Update all of our pads every tick as well
     for (int i = 0; i < NUM_PADS; i++) {
         this->PADS[i].update();
@@ -42,7 +42,7 @@ void PlayPad::update() {
     }
 }
 
-bool PlayPad::_sendReport(uint8_t const* buffer, uint16_t bufsize) {
+bool Toypad::_sendReport(uint8_t const* buffer, uint16_t bufsize) {
     uint32_t save = save_and_disable_interrupts();
     if (_isSending) {
         restore_interrupts(save);
@@ -58,7 +58,7 @@ bool PlayPad::_sendReport(uint8_t const* buffer, uint16_t bufsize) {
     return result;
 }
 
-void PlayPad::_configureDevice() {
+void Toypad::_configureDevice() {
     TinyUSBDevice.clearConfiguration();
 
     TinyUSBDevice.setVersion(0x0200);
@@ -70,7 +70,7 @@ void PlayPad::_configureDevice() {
     TinyUSBDevice.setSerialDescriptor(PLAYPAD_SERIAL);
 }
 
-void PlayPad::_reenumerate() {
+void Toypad::_reenumerate() {
     if (TinyUSBDevice.mounted()) {
         TinyUSBDevice.detach();
         delay(10);
@@ -78,10 +78,10 @@ void PlayPad::_reenumerate() {
     }
 }
 
-uint16_t PlayPad::_getReportCallback(uint8_t report_id,
-                                     hid_report_type_t report_type,
-                                     uint8_t* buffer,
-                                     uint16_t reqlen) {
+uint16_t Toypad::_getReportCallback(uint8_t report_id,
+                                    hid_report_type_t report_type,
+                                    uint8_t* buffer,
+                                    uint16_t reqlen) {
     (void)report_id;
     (void)report_type;
     (void)buffer;
@@ -89,10 +89,10 @@ uint16_t PlayPad::_getReportCallback(uint8_t report_id,
     return 0;
 }
 
-void PlayPad::_setReportCallback(uint8_t report_id,
-                                 hid_report_type_t report_type,
-                                 uint8_t const* buffer,
-                                 uint16_t bufsize) {
+void Toypad::_setReportCallback(uint8_t report_id,
+                                hid_report_type_t report_type,
+                                uint8_t const* buffer,
+                                uint16_t bufsize) {
     (void)report_id;
     (void)report_type;
 
@@ -125,7 +125,7 @@ void PlayPad::_setReportCallback(uint8_t report_id,
     }
 }
 
-void PlayPad::_handleCommandPacket(const CommandPacket& packet) {
+void Toypad::_handleCommandPacket(const CommandPacket& packet) {
     log_dbg("[PlayPad] Valid packet received: Command=0x%02X, PayloadSize=%d, CID=0x%02X",
             packet.command(), packet.payloadSize(), packet.cid());
 
@@ -137,7 +137,7 @@ void PlayPad::_handleCommandPacket(const CommandPacket& packet) {
     }
 }
 
-void PlayPad::_registerHandlers() {
+void Toypad::_registerHandlers() {
     // Add a new line here to register any new command - nothing else needs to change.
     _commandHandlers[GatewayCommand::WAKE] = [this](const CommandPacket& p) { _handleWake(p); };
     _commandHandlers[GatewayCommand::SEED] = [this](const CommandPacket& p) { _handleSeed(p); };
@@ -163,7 +163,7 @@ void PlayPad::_registerHandlers() {
     _commandHandlers[GatewayCommand::WRITE] = [this](const CommandPacket& p) { _handleWrite(p); };
 }
 
-void PlayPad::tagChangeEvent(ToyTag* placedTag, TagIndex lastLocation) {
+void Toypad::tagChangeEvent(ToyTag* placedTag, TagIndex lastLocation) {
     uint8_t uid[8];
     placedTag->getUID(uid);
 
@@ -176,7 +176,7 @@ void PlayPad::tagChangeEvent(ToyTag* placedTag, TagIndex lastLocation) {
 
     const PadLocation currentPadSection = padSectionFromLocation(padIndex);
     if (currentPadSection == PadLocation::ALL) {
-        log_err("[PlayPad::tagChangeEvent] No pad section for padIndex=%d",
+        log_err("[Toypad::tagChangeEvent] No pad section for padIndex=%d",
                 static_cast<int>(padIndex));
         return;
     }
@@ -184,12 +184,12 @@ void PlayPad::tagChangeEvent(ToyTag* placedTag, TagIndex lastLocation) {
     if (direction == TagEventPacket::TagMovementDirection::REMOVED) {
         PlacedToken* pt = _findToken(placedTag);
         if (pt == nullptr) {
-            log_err("[PlayPad::tagChangeEvent] Remove: tag id=%d not in tracking table",
+            log_err("[Toypad::tagChangeEvent] Remove: tag id=%d not in tracking table",
                     placedTag->id);
             return;
         }
 
-        log_dbg("[PlayPad::tagChangeEvent] Tag removed - id=%d index=%d pad=%d", placedTag->id,
+        log_dbg("[Toypad::tagChangeEvent] Tag removed - id=%d index=%d pad=%d", placedTag->id,
                 pt->index, static_cast<int>(padIndex));
 
         EventPacket packet = TagEventPacket::build(currentPadSection, pt->index, direction, uid);
@@ -205,9 +205,8 @@ void PlayPad::tagChangeEvent(ToyTag* placedTag, TagIndex lastLocation) {
 
             if (oldSection == currentPadSection) {
                 // Same section - positional move, keep index
-                log_dbg(
-                    "[PlayPad::tagChangeEvent] Tag moved within section - id=%d index=%d pad=%d",
-                    placedTag->id, existing->index, static_cast<int>(currentPadSection));
+                log_dbg("[Toypad::tagChangeEvent] Tag moved within section - id=%d index=%d pad=%d",
+                        placedTag->id, existing->index, static_cast<int>(currentPadSection));
 
                 existing->padLocation = padIndex;
 
@@ -219,7 +218,7 @@ void PlayPad::tagChangeEvent(ToyTag* placedTag, TagIndex lastLocation) {
                 // Free old index first so the alloc below gets the lowest available,
                 // which will be the same index if nothing else is free at a lower slot.
                 log_dbg(
-                    "[PlayPad::tagChangeEvent] Tag crossed sections - id=%d index=%d pad=%d -> %d",
+                    "[Toypad::tagChangeEvent] Tag crossed sections - id=%d index=%d pad=%d -> %d",
                     placedTag->id, existing->index, static_cast<int>(oldSection),
                     static_cast<int>(currentPadSection));
 
@@ -235,7 +234,7 @@ void PlayPad::tagChangeEvent(ToyTag* placedTag, TagIndex lastLocation) {
                 const uint8_t newIndex = _allocIndex();
                 if (newIndex == 0xFF) {
                     log_warn(
-                        "[PlayPad::tagChangeEvent] Index table full during cross-section move, "
+                        "[Toypad::tagChangeEvent] Index table full during cross-section move, "
                         "id=%d",
                         placedTag->id);
                     // Evict the stale slot so the table stays consistent
@@ -256,14 +255,14 @@ void PlayPad::tagChangeEvent(ToyTag* placedTag, TagIndex lastLocation) {
             // Genuinely new placement
             const uint8_t idx = _allocIndex();
             if (idx == 0xFF) {
-                log_warn("[PlayPad::tagChangeEvent] Token table full, cannot place id=%d",
+                log_warn("[Toypad::tagChangeEvent] Token table full, cannot place id=%d",
                          placedTag->id);
                 return;
             }
 
             _placedTokens[_placedCount++] = {idx, padIndex, placedTag};
 
-            log_dbg("[PlayPad::tagChangeEvent] Tag placed - id=%d index=%d pad=%d", placedTag->id,
+            log_dbg("[Toypad::tagChangeEvent] Tag placed - id=%d index=%d pad=%d", placedTag->id,
                     idx, static_cast<int>(currentPadSection));
 
             EventPacket packet = TagEventPacket::build(currentPadSection, idx, direction, uid);
@@ -272,7 +271,7 @@ void PlayPad::tagChangeEvent(ToyTag* placedTag, TagIndex lastLocation) {
     }
 }
 
-void PlayPad::_notifyPadStateChange() {
+void Toypad::_notifyPadStateChange() {
     if (!_padStateCallback) {
         return;
     }
@@ -299,7 +298,7 @@ void PlayPad::_notifyPadStateChange() {
     _padStateCallback(json);
 }
 
-void PlayPad::_notifyTagStateChange(const ToyTag* updatedTag) {
+void Toypad::_notifyTagStateChange(const ToyTag* updatedTag) {
     if (!_tagStateCallback) {
         return;
     }
@@ -307,7 +306,7 @@ void PlayPad::_notifyTagStateChange(const ToyTag* updatedTag) {
     _tagStateCallback(updatedTag);
 }
 
-void PlayPad::_handleWake(const CommandPacket& packet) {
+void Toypad::_handleWake(const CommandPacket& packet) {
     log_dbg("[PlayPad] WAKE command received. Payload: %s", packet.payloadToHexString());
 
     static const uint8_t WAKE_RESPONSE[] = {0x28, 0x63, 0x29, 0x20, 0x4c, 0x45, 0x47,
@@ -323,7 +322,7 @@ void PlayPad::_handleWake(const CommandPacket& packet) {
     }
 }
 
-void PlayPad::_handleSeed(const CommandPacket& packet) {
+void Toypad::_handleSeed(const CommandPacket& packet) {
     log_dbg("[PlayPad] SEED command received. Payload: %s", packet.payloadToHexString());
     SeedPacket::SeedStatus decrypted = SeedPacket::fromCommand(packet, &_crypto);
     log_dbg("[PlayPad] SEED parsed. (Seed: %d, Config: %d)", decrypted.seed, decrypted.conf);
@@ -333,7 +332,7 @@ void PlayPad::_handleSeed(const CommandPacket& packet) {
     sendPacket(response);
 }
 
-void PlayPad::_handleChallenge(const CommandPacket& packet) {
+void Toypad::_handleChallenge(const CommandPacket& packet) {
     log_dbg("[PlayPad] CHALLENGE command received. Payload: %s", packet.payloadToHexString());
     ChallengePacket::ChallengeStatus decrypted = ChallengePacket::fromCommand(packet, &_crypto);
     log_dbg("[PlayPad] CHALLENGE parsed. (Config: %d)", decrypted.conf);
@@ -343,7 +342,7 @@ void PlayPad::_handleChallenge(const CommandPacket& packet) {
     sendPacket(response);
 }
 
-void PlayPad::_handleCol(const CommandPacket& packet) {
+void Toypad::_handleCol(const CommandPacket& packet) {
     ColorPacket::ColorStatus parsed = ColorPacket::fromCommand(packet);
     log_dbg("[PlayPad] COL parsed; PadIndex: %d (R:%d G:%d B:%d)",
             static_cast<uint8_t>(parsed.padLocation), parsed.padColor.r, parsed.padColor.g,
@@ -363,7 +362,7 @@ void PlayPad::_handleCol(const CommandPacket& packet) {
     _padStateDirty = true;
 }
 
-void PlayPad::_handleColAll(const CommandPacket& packet) {
+void Toypad::_handleColAll(const CommandPacket& packet) {
     ColorAllPacket::ColorStatus parsed = ColorAllPacket::fromCommand(packet);
     log_dbg(
         "[PlayPad] COLAL parsed; Left:(R:%d G:%d B:%d) Mid:(R:%d G:%d B:%d) Right:(R:%d G:%d B:%d)",
@@ -381,7 +380,7 @@ void PlayPad::_handleColAll(const CommandPacket& packet) {
     _padStateDirty = true;
 }
 
-void PlayPad::_handleFlash(const CommandPacket& packet) {
+void Toypad::_handleFlash(const CommandPacket& packet) {
     FlashPacket::FlashStatus parsed = FlashPacket::fromCommand(packet);
     log_dbg("[PlayPad] FLASH parsed; PadIndex:%d OnTicks:%d OffTicks:%d (R:%d G:%d B:%d)",
             static_cast<uint8_t>(parsed.padLocation), parsed.onTicks, parsed.offTicks,
@@ -402,7 +401,7 @@ void PlayPad::_handleFlash(const CommandPacket& packet) {
     _padStateDirty = true;
 }
 
-void PlayPad::_handleFlashAll(const CommandPacket& packet) {
+void Toypad::_handleFlashAll(const CommandPacket& packet) {
     log_dbg("[PlayPad] FLSAL command received. Payload: %s", packet.payloadToHexString());
     FlashAllPacket::FlashStatus parsed = FlashAllPacket::fromCommand(packet);
 
@@ -427,7 +426,7 @@ void PlayPad::_handleFlashAll(const CommandPacket& packet) {
     _padStateDirty = true;
 }
 
-void PlayPad::_handleFade(const CommandPacket& packet) {
+void Toypad::_handleFade(const CommandPacket& packet) {
     log_dbg("[PlayPad] FADE command received. Payload: %s", packet.payloadToHexString());
     FadePacket::FadeStatus parsed = FadePacket::fromCommand(packet);
     log_dbg("[PlayPad] FADE parsed; PadIndex:%d Cycles:%d Speed:%d (R:%d G:%d B:%d)",
@@ -448,7 +447,7 @@ void PlayPad::_handleFade(const CommandPacket& packet) {
     _padStateDirty = true;
 }
 
-void PlayPad::_handleFadeAll(const CommandPacket& packet) {
+void Toypad::_handleFadeAll(const CommandPacket& packet) {
     log_dbg("[PlayPad] FADEALL command received. Payload: %s", packet.payloadToHexString());
     FadeAllPacket::FadeStatus parsed = FadeAllPacket::fromCommand(packet);
 
@@ -473,7 +472,7 @@ void PlayPad::_handleFadeAll(const CommandPacket& packet) {
     _padStateDirty = true;
 }
 
-void PlayPad::_handleGetColor(const CommandPacket& packet) {
+void Toypad::_handleGetColor(const CommandPacket& packet) {
     const PadLocation colorToGet = GetColorPacket::fromCommand(packet);
 
     if (colorToGet == PadLocation::ALL) {
@@ -488,7 +487,7 @@ void PlayPad::_handleGetColor(const CommandPacket& packet) {
     sendPacket(response);
 }
 
-void PlayPad::_handleTagList(const CommandPacket& packet) {
+void Toypad::_handleTagList(const CommandPacket& packet) {
     TagListPacket::TagEntry tagEntries[MAX_TOKENS]{};
 
     for (uint8_t i = 0; i < _placedCount; i++) {
@@ -501,7 +500,7 @@ void PlayPad::_handleTagList(const CommandPacket& packet) {
     sendPacket(response);
 }
 
-void PlayPad::_handleRead(const CommandPacket& packet) {
+void Toypad::_handleRead(const CommandPacket& packet) {
     const ReadPacket::ReadRequest req = ReadPacket::fromCommand(packet);
 
     log_dbg("[PlayPad] READ command // index=%d page=%d", req.index, req.page);
@@ -525,7 +524,7 @@ void PlayPad::_handleRead(const CommandPacket& packet) {
     sendPacket(response);
 }
 
-void PlayPad::_handleModel(const CommandPacket& packet) {
+void Toypad::_handleModel(const CommandPacket& packet) {
     const ModelPacket::ModelRequest req = ModelPacket::fromCommand(packet, &_crypto);
 
     log_dbg("[PlayPad] MODEL command - index=%d conf=0x%08X", req.index, req.conf);
@@ -563,7 +562,7 @@ void PlayPad::_handleModel(const CommandPacket& packet) {
     sendPacket(response);
 }
 
-void PlayPad::_handleWrite(const CommandPacket& packet) {
+void Toypad::_handleWrite(const CommandPacket& packet) {
     const WritePacket::WriteRequest req = WritePacket::fromCommand(packet);
 
     log_dbg("[PlayPad] WRITE command - index=%d page=%d data=%02X%02X%02X%02X", req.index, req.page,

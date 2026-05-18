@@ -2,7 +2,7 @@
 
 #include <Arduino.h>
 #include <FastLED.h>
-#include "lego/playpad.h"
+#include "lego/toypad.h"
 
 /**
  * @brief Drives a WS2812B LED strip split into three segments,
@@ -23,7 +23,7 @@ class PlaypadLEDController {
         uint8_t brightness = 50;
     };
 
-    PlaypadLEDController(PlayPad* playpad, Config config) : _playpad(playpad), _config(config) {
+    PlaypadLEDController(Toypad* playpad, Config config) : _playpad(playpad), _config(config) {
         _totalLeds = config.leftCount + config.centerCount + config.rightCount;
 
         // Pre-compute segment start offsets
@@ -117,7 +117,7 @@ class PlaypadLEDController {
         uint8_t count;
     };
 
-    PlayPad* _playpad = nullptr;
+    Toypad* _playpad = nullptr;
     CRGB* _leds = nullptr;
     Config _config;
     uint8_t _totalLeds = 0;

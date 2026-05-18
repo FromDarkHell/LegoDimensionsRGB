@@ -43,9 +43,9 @@ static const uint8_t desc_hid_report[] = {
 static_assert(sizeof(desc_hid_report) == 29,
               "HID report descriptor must be exactly 29 bytes to match OEM wDescriptorLength");
 
-class PlayPad {
+class Toypad {
    public:
-    PlayPad();
+    Toypad();
 
     /**
      * @brief Initializes the PlayPad device and configures the USB HID interface. This should be
@@ -265,7 +265,7 @@ class PlayPad {
      * callbacks themselves cannot be member functions.
      *
      */
-    static PlayPad* _instance;
+    static Toypad* _instance;
 
     /**
      * @brief A struct used for keeping track of placed tokens
