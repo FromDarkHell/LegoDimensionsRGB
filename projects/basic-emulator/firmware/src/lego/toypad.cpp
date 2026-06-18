@@ -1,4 +1,5 @@
 #include "lego/toypad.h"
+#include <config/config.h>
 #include "log/logger.h"
 
 Toypad* Toypad::_instance = nullptr;
@@ -9,17 +10,30 @@ Toypad::Toypad() {
 }
 
 void Toypad::begin() {
+    // Read persisted platform choice; default to PS3 if never set.
+    uint8_t platformVal = config.getUChar("platform", static_cast<uint8_t>(ToypadPlatform::PS3));
+    _platform = static_cast<ToypadPlatform>(platformVal);
+
+    log_dbg("[Toypad::begin] Platform = %s", _platform == ToypadPlatform::X360 ? "X360" : "PS3");
+
     if (!TinyUSBDevice.isInitialized()) {
         TinyUSBDevice.begin(0);
     }
 
     _configureDevice();
 
-    _usb_hid.enableOutEndpoint(true);
-    _usb_hid.setPollInterval(1);
-    _usb_hid.setReportDescriptor(desc_hid_report, sizeof(desc_hid_report));
-    _usb_hid.setReportCallback(_getReportCallback, _setReportCallback);
-    _usb_hid.begin();
+    if (_platform == ToypadPlatform::X360) {
+        _x360_usb.setReceiveCallback([](uint8_t const* buf, uint16_t len) {
+            Toypad::_setReportCallback(0, (hid_report_type_t)0, buf, len);
+        });
+        _x360_usb.begin();
+    } else {
+        _usb_hid.enableOutEndpoint(true);
+        _usb_hid.setPollInterval(1);
+        _usb_hid.setReportDescriptor(desc_hid_report_ps3, sizeof(desc_hid_report_ps3));
+        _usb_hid.setReportCallback(_getReportCallback, _setReportCallback);
+        _usb_hid.begin();
+    }
 
     _reenumerate();
 
@@ -52,7 +66,8 @@ bool Toypad::_sendReport(uint8_t const* buffer, uint16_t bufsize) {
     _isSending = true;
     restore_interrupts(save);
 
-    bool result = _usb_hid.sendReport(0, buffer, bufsize);
+    bool result = (_platform == ToypadPlatform::X360) ? _x360_usb.sendReport(buffer, bufsize)
+                                                      : _usb_hid.sendReport(0, buffer, bufsize);
 
     _isSending = false;
     return result;
@@ -60,14 +75,27 @@ bool Toypad::_sendReport(uint8_t const* buffer, uint16_t bufsize) {
 
 void Toypad::_configureDevice() {
     TinyUSBDevice.clearConfiguration();
-
     TinyUSBDevice.setVersion(0x0200);
 
-    TinyUSBDevice.setID(PLAYPAD_VENDOR_ID, PLAYPAD_PRODUCT_ID);
-    TinyUSBDevice.setDeviceVersion(PLAYPAD_VERSION);
-    TinyUSBDevice.setManufacturerDescriptor(PLAYPAD_MANUFACTURER);
-    TinyUSBDevice.setProductDescriptor(PLAYPAD_PRODUCT);
-    TinyUSBDevice.setSerialDescriptor(PLAYPAD_SERIAL);
+    switch (_platform) {
+        case ToypadPlatform::X360:
+            TinyUSBDevice.setID(X360_PLAYPAD_VENDOR_ID, X360_PLAYPAD_PRODUCT_ID);
+            TinyUSBDevice.setDeviceVersion(X360_PLAYPAD_VERSION);
+            TinyUSBDevice.setManufacturerDescriptor(X360_PLAYPAD_MANUFACTURER);
+            TinyUSBDevice.setProductDescriptor(X360_PLAYPAD_PRODUCT);
+            TinyUSBDevice.setSerialDescriptor(X360_PLAYPAD_SERIAL);
+
+            break;
+
+        case ToypadPlatform::PS3:
+        default:
+            TinyUSBDevice.setID(PS3_PLAYPAD_VENDOR_ID, PS3_PLAYPAD_PRODUCT_ID);
+            TinyUSBDevice.setDeviceVersion(PS3_PLAYPAD_VERSION);
+            TinyUSBDevice.setManufacturerDescriptor(PS3_PLAYPAD_MANUFACTURER);
+            TinyUSBDevice.setProductDescriptor(PS3_PLAYPAD_PRODUCT);
+            TinyUSBDevice.setSerialDescriptor(PS3_PLAYPAD_SERIAL);
+            break;
+    }
 }
 
 void Toypad::_reenumerate() {
@@ -104,6 +132,14 @@ void Toypad::_setReportCallback(uint8_t report_id,
         return;
     }
 
+    if (_instance->platform() == ToypadPlatform::X360) {
+        // "Strip" out the first two bytes (0x0B, 0x16)
+        if (buffer[0] == 0x0B && buffer[1] == 0x16) {
+            buffer += 2;
+            bufsize -= 2;
+        }
+    }
+
     switch (static_cast<PacketType>(buffer[0])) {
         case PacketType::COMMAND: {
             CommandPacket cmd_pkt = CommandPacket();
@@ -120,6 +156,15 @@ void Toypad::_setReportCallback(uint8_t report_id,
         }
         case PacketType::EVENT: {
             log_warn("[PlayPad] Received Event packet from host, which is unexpected. Ignoring.");
+            break;
+        }
+        default: {
+            char hexString[bufsize * 2 + 1];
+            for (size_t i = 0; i < bufsize; ++i) {
+                sprintf(&hexString[i * 2], "%02X", buffer[i]);
+            }
+
+            log_warn("[PlayPad] Received unknown data: %s", hexString);
             break;
         }
     }

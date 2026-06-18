@@ -17,7 +17,7 @@
     <div
       style="display: flex; align-items: center; gap: 1em; margin-bottom: 1em"
     >
-      <h1 style="margin: 0">Playpad Emulator</h1>
+      <h1 style="margin: 0">Toypad Emulator</h1>
       <span id="ws-status" class="connecting">
         <span class="dot"></span>
         <span id="ws-status-text">Connecting</span>
@@ -67,14 +67,14 @@
             </div>
 
             <div class="movement-instructions">
-              Click a toy to select it, then click a playpad space to move it
+              Click a toy to select it, then click a toypad space to move it
               there.
             </div>
             <div id="toybox"></div>
           </div>
 
           <div class="box" style="width: 100%">
-            <h2>Playpad</h2>
+            <h2>Toypad</h2>
             <div class="movement-instructions">
               Click on toys here to select them for moving, or click a selected
               toy again to deselect it.
@@ -259,6 +259,54 @@
                 </div>
               </div>
 
+              <div style="display: flex; gap: 1em">
+                <div class="form">
+                  <h2>Change Platform</h2>
+                  <p>Change between PS3 (Wii U, PS4) and Xbox 360</p>
+
+                  <div
+                    class="button-container"
+                    style="
+                      display: flex;
+                      flex-direction: row;
+                      gap: 0.5em;
+                      justify-content: center;
+                      align-items: center;
+                    "
+                  >
+                    <form
+                      method="POST"
+                      action="/platform"
+                      style="
+                        display: flex;
+                        gap: 0.5em;
+                        background: transparent;
+                        padding: 0;
+                        margin: 0;
+                      "
+                    >
+                      <input type="hidden" name="platform" value="0" />
+                      <button type="submit">PS3</button>
+                    </form>
+
+                    <form
+                      method="POST"
+                      action="/platform"
+                      style="
+                        display: flex;
+                        gap: 0.5em;
+                        background: transparent;
+                        padding: 0;
+                        margin: 0;
+                      "
+                    >
+                      <input type="hidden" name="platform" value="1" />
+                      <button type="submit">Xbox 360</button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+
               <form
                 method="POST"
                 action="/restart"
@@ -266,7 +314,7 @@
               >
                 <div>
                   <h2>Restart</h2>
-                  <p class="sm">This restarts the playpad controller</p>
+                  <p class="sm">This restarts the toypad controller</p>
                 </div>
 
                 <div class="button-container">
@@ -282,7 +330,7 @@
                 <div>
                   <h2>Factory Reset</h2>
                   <p class="sm">
-                    This resets your settings and then restarts the playpad
+                    This resets your settings and then restarts the toypad
                     controller
                   </p>
                 </div>
@@ -378,8 +426,8 @@
     var selectedToy = null;
     var toybox = [];
 
-    // Object to track toys on playpad: {padId: toyObject}
-    var _playpadToys = {};
+    // Object to track toys on toypad: {padId: toyObject}
+    var _toypadToys = {};
 
     const _requestQueue = {
       _chain: Promise.resolve(),
@@ -391,7 +439,7 @@
       },
     };
 
-    const playpadUpdateHandler = {
+    const toypadUpdateHandler = {
       set(target, property, value) {
         const oldCharacter = target[property];
         const newCharacter = value;
@@ -400,7 +448,7 @@
         // For pad-to-pad moves, the backend handles the remove itself
         if (oldCharacter !== undefined && newCharacter === undefined) {
           _requestQueue.add(() =>
-            fetch("/playpad", {
+            fetch("/toypad", {
               method: "PUT",
               headers: { "Content-Type": "application/x-www-form-urlencoded" },
               body: new URLSearchParams({ uid: oldCharacter.uid, index: -1 }),
@@ -410,7 +458,7 @@
 
         if (newCharacter !== undefined) {
           _requestQueue.add(() =>
-            fetch("/playpad", {
+            fetch("/toypad", {
               method: "PUT",
               headers: { "Content-Type": "application/x-www-form-urlencoded" },
               body: new URLSearchParams({
@@ -426,9 +474,8 @@
       },
     };
 
-    var playpadToys = new Proxy(_playpadToys, playpadUpdateHandler);
+    var toypadToys = new Proxy(_toypadToys, toypadUpdateHandler);
 
-    // Populated once the JSON loads — keyed by grid_type
     const _allTags = { character: [], vehicle: [] };
 
     function populateFilterDropdown(grid_type, tags) {
@@ -633,18 +680,18 @@
 
       if (updatePads) {
         const toysOnPad = toybox.filter((toy) => toy.index != -1);
-        console.log(`Need to place ${JSON.stringify(toysOnPad)} onto playpad`);
+        console.log(`Need to place ${JSON.stringify(toysOnPad)} onto toypad`);
 
         toysOnPad.forEach((toy) => {
-          _playpadToys[toy.index] = toy;
+          _toypadToys[toy.index] = toy;
           renderPad(toy.index);
         });
       }
 
-      // Only show toys that are not on the playpad
+      // Only show toys that are not on the toypad
       const availableToys = toybox.filter(
         (toy) =>
-          !Object.values(playpadToys).some((padToy) => padToy.uid === toy.uid),
+          !Object.values(toypadToys).some((padToy) => padToy.uid === toy.uid),
       );
 
       console.log(`Available Toybox Toys: ${JSON.stringify(availableToys)}`);
@@ -675,7 +722,7 @@
     function renderPad(padId) {
       console.log(`Rendering pad: ${padId}`);
       const pad = document.querySelector(`[data-pad-index="${padId}"]`);
-      const toy = playpadToys[padId];
+      const toy = toypadToys[padId];
 
       if (!toy) {
         pad.classList.remove("occupied");
@@ -761,7 +808,7 @@
           // If we have a selected toy from toybox, move it to this pad
           if (
             selectedToy &&
-            !playpadToys[padId] &&
+            !toypadToys[padId] &&
             selectedToy.currentPadId === undefined
           ) {
             moveToyToPad(selectedToy, padId);
@@ -770,7 +817,7 @@
           // If clicking on an empty pad and we have a toy selected from another pad
           else if (
             selectedToy &&
-            !playpadToys[padId] &&
+            !toypadToys[padId] &&
             selectedToy.currentPadId !== undefined
           ) {
             moveToyBetweenPads(selectedToy.currentPadId, padId);

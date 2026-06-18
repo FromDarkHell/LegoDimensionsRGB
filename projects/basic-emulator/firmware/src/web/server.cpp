@@ -1,11 +1,11 @@
 #include "web/server.h"
 
-LegoServer::LegoServer(const char* ssid, const char* password, Toypad* playpadInstance) {
+LegoServer::LegoServer(const char* ssid, const char* password, Toypad* toypadInstance) {
     this->ssid = strdup(ssid);
     this->password = strdup(password);
     this->html = fs_read("/index.html");
     this->css = fs_read("/style.css");
-    this->playpad = playpadInstance;
+    this->toypad = toypadInstance;
 
     this->initialize();
 }
@@ -263,9 +263,9 @@ bool LegoServer::add_lego_endpoints() {
         request->send(200, "application/json", this->toybox->serialize());
     });
 
-    // Running a PUT request onto the `/playpad` endpoint
+    // Running a PUT request onto the `/toypad` endpoint
     // It lets you move a tag around based on the UID.
-    server->on("/playpad", HTTP_PUT, [this](AsyncWebServerRequest* request) {
+    server->on("/toypad", HTTP_PUT, [this](AsyncWebServerRequest* request) {
         if (this->toybox == nullptr) {
             this->load_toybox();
         }
@@ -300,9 +300,37 @@ bool LegoServer::add_lego_endpoints() {
         (*tag).padIndex = location;
 
         this->_toyboxDirty = true;
-        this->playpad->tagChangeEvent(tag, lastLocation);
+        this->toypad->tagChangeEvent(tag, lastLocation);
 
         request->send(200, "application/json", this->toybox->serialize());
+    });
+
+    server->on("/platform", HTTP_POST, [this](AsyncWebServerRequest* request) {
+        const char* platform = nullptr;
+        for (int i = 0; i < request->params(); i++) {
+            const AsyncWebParameter* param = request->getParam(i);
+
+            if (param->name() == "platform") {
+                platform = param->value().c_str();
+            } else {
+                log_warn("[server::platform] Unknown param %s", param->name().c_str());
+            }
+        }
+
+        if (platform == nullptr) {
+            request->send(400, "text/plain", "Missing Platform");
+            return;
+        }
+
+        const ToypadPlatform platformInt =
+            ToypadPlatform(static_cast<uint8_t>(std::stoi(platform)));
+
+        log_dbg("[server::platform] Setting platform to %s",
+                platformInt == ToypadPlatform::PS3 ? "PS3" : "X360");
+        config.setUChar("platform", static_cast<uint8_t>(platformInt));
+        request->send(200, "text/plain", "Success... Restarting...");
+
+        rp2040.reboot();
     });
 
     ws.onEvent([this](AsyncWebSocket* server, AsyncWebSocketClient* client, AwsEventType type,
@@ -312,7 +340,7 @@ bool LegoServer::add_lego_endpoints() {
                 log_dbg("[LegoServer] WebSocket client #%u connected", client->id());
                 // Push current state immediately on connect so the page
                 // doesn't have to wait for the next change
-                if (this->playpad) {
+                if (this->toypad) {
                     JsonDocument doc;
                     static constexpr struct {
                         const char* key;
@@ -324,7 +352,7 @@ bool LegoServer::add_lego_endpoints() {
                     };
                     for (const auto& e : ENTRIES) {
                         JsonObject obj = doc[e.key].to<JsonObject>();
-                        this->playpad->getPad(e.loc)->toJson(obj);
+                        this->toypad->getPad(e.loc)->toJson(obj);
                     }
                     String json;
                     serializeJson(doc, json);
@@ -359,8 +387,8 @@ bool LegoServer::add_lego_endpoints() {
 
     server->addHandler(&ws);
 
-    if (playpad != nullptr) {
-        playpad->onPadStateChange([this](const String& serializedPadState) {
+    if (toypad != nullptr) {
+        toypad->onPadStateChange([this](const String& serializedPadState) {
             if (ws.count() == 0) {
                 return;
             }
@@ -388,16 +416,16 @@ bool LegoServer::load_toybox() {
     bool result = this->toybox->deserialize(json);
     free((void*)json);
 
-    if (playpad != nullptr) {
-        playpad->onTagStateChange([this](const ToyTag* updated) { this->_toyboxDirty = true; });
+    if (toypad != nullptr) {
+        toypad->onTagStateChange([this](const ToyTag* updated) { this->_toyboxDirty = true; });
 
         // Now that we've loaded the toybox, we can send all of the toybox tag-updates to the
-        // playpad.
-        // This way the playpad knows who is on what tag index.
+        // toypad.
+        // This way the toypad knows who is on what tag index.
         for (size_t i = 0; i < this->toybox->count(); i++) {
             ToyTag* tag = this->toybox->getToy(i);
             if (tag->padIndex != TagIndex::Unplaced || tag->padIndex != TagIndex::INVALID) {
-                playpad->tagChangeEvent(tag, TagIndex::Unplaced);
+                toypad->tagChangeEvent(tag, TagIndex::Unplaced);
             }
         }
     }

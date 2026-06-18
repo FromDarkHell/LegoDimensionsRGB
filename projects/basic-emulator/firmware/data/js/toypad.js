@@ -19,22 +19,22 @@ function toyClick(evt) {
 }
 
 function swapToyWithPad(selectedToy, targetPadId) {
-  const toyOnTargetPad = playpadToys[targetPadId];
+  const toyOnTargetPad = toypadToys[targetPadId];
 
   // If selected toy is from toybox
   if (selectedToy.currentPadId === undefined) {
     // Move toy from toybox to pad
-    playpadToys[targetPadId] = selectedToy;
+    toypadToys[targetPadId] = selectedToy;
     // (toyOnTargetPad will automatically appear in toybox when renderToybox() runs)
   }
   // If selected toy is from another pad
   else {
     // Clear the source pad
-    delete playpadToys[selectedToy.currentPadId];
+    delete toypadToys[selectedToy.currentPadId];
     // Put selected toy on target pad
-    playpadToys[targetPadId] = selectedToy;
+    toypadToys[targetPadId] = selectedToy;
     // Put displaced toy on source pad
-    playpadToys[selectedToy.currentPadId] = toyOnTargetPad;
+    toypadToys[selectedToy.currentPadId] = toyOnTargetPad;
   }
 
   // Re-render affected areas
@@ -56,12 +56,12 @@ function swapToyWithPad(selectedToy, targetPadId) {
 }
 
 function swapToysBetweenPads(sourcePadId, targetPadId) {
-  const sourceToy = playpadToys[sourcePadId];
-  const targetToy = playpadToys[targetPadId];
+  const sourceToy = toypadToys[sourcePadId];
+  const targetToy = toypadToys[targetPadId];
 
   // Swap the toys
-  playpadToys[sourcePadId] = targetToy;
-  playpadToys[targetPadId] = sourceToy;
+  toypadToys[sourcePadId] = targetToy;
+  toypadToys[targetPadId] = sourceToy;
 
   // Re-render both pads
   renderPad(sourcePadId);
@@ -75,7 +75,7 @@ function swapToysBetweenPads(sourcePadId, targetPadId) {
 function handleToyOnPadClick(e, padId) {
   e.stopPropagation();
 
-  const toyOnPad = playpadToys[padId];
+  const toyOnPad = toypadToys[padId];
   if (!toyOnPad) return;
 
   // Clicking the already-selected toy on its pad
@@ -88,14 +88,14 @@ function handleToyOnPadClick(e, padId) {
     return;
   }
 
-  // No selection yet — select this pad toy
+  // No selection yet, just select this pad toy
   if (!selectedToy) {
     selectedToy = { ...toyOnPad, currentPadId: padId };
     renderPad(padId); // re-render to show action overlay
     return;
   }
 
-  // A different toy is selected — swap or place
+  // A different toy is selected, swap or place
   if (selectedToy.currentPadId === undefined) {
     swapToyWithPad(selectedToy, padId);
   } else {
@@ -108,7 +108,7 @@ function handleToyOnPadClick(e, padId) {
 function moveToyToPad(toy, padId, updateToybox = true) {
   console.log(`Moved toy ${toy.name} to pad ${padId}`);
 
-  playpadToys[padId] = toy;
+  toypadToys[padId] = toy;
   renderPad(padId);
 
   if (updateToybox) {
@@ -117,9 +117,9 @@ function moveToyToPad(toy, padId, updateToybox = true) {
 }
 
 function moveToyBetweenPads(fromPadId, toPadId) {
-  const toy = playpadToys[fromPadId];
-  delete playpadToys[fromPadId];
-  playpadToys[toPadId] = toy;
+  const toy = toypadToys[fromPadId];
+  delete toypadToys[fromPadId];
+  toypadToys[toPadId] = toy;
 
   renderPad(fromPadId);
   renderPad(toPadId);
@@ -127,9 +127,9 @@ function moveToyBetweenPads(fromPadId, toPadId) {
 }
 
 function moveToyToToybox(padId) {
-  const toy = playpadToys[padId];
-  playpadToys[padId] = undefined;
-  delete playpadToys[padId];
+  const toy = toypadToys[padId];
+  toypadToys[padId] = undefined;
+  delete toypadToys[padId];
 
   renderPad(padId);
   renderToybox();

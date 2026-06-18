@@ -7,41 +7,11 @@
 #include "lego/crypto/tea.h"
 #include "lego/hid/packets.h"
 #include "lego/hid/pad.h"
+#include "lego/hid/reports.h"
+#include "lego/hid/x360_usb.h"
 #include "lego/tag.h"
 #include "lego/util/event_queue.h"
 #include "log/logger.h"
-
-#define PLAYPAD_VENDOR_ID 0x0E6F
-#define PLAYPAD_PRODUCT_ID 0x0241
-#define PLAYPAD_PRODUCT "LEGO READER V2.10"
-#define PLAYPAD_MANUFACTURER "PDP LIMITED. "
-#define PLAYPAD_SERIAL "P.D.P.000000"
-#define PLAYPAD_VERSION 0x0100
-#define PLAYPAD_WRITE_ENDPOINT 0x0001
-#define PLAYPAD_READ_ENDPOINT 0x0081
-
-static const uint8_t desc_hid_report[] = {
-    0x06, 0x00, 0xFF,  // Usage Page (Vendor Defined 0xFF00)
-    0x09, 0x01,        // Usage (0x01)
-    0xA1, 0x01,        // Collection (Application)
-
-    0x19, 0x01,        //   Usage Minimum (1)
-    0x29, 0x20,        //   Usage Maximum (32)
-    0x15, 0x00,        //   Logical Minimum (0)
-    0x26, 0xFF, 0x00,  //   Logical Maximum (255)
-    0x75, 0x08,        //   Report Size (8)
-    0x95, 0x20,        //   Report Count (32)
-    0x81, 0x00,        //   Input  (Array)
-
-    0x19, 0x01,  //   Usage Minimum (1)
-    0x29, 0x20,  //   Usage Maximum (32)
-    0x91, 0x00,  //   Output (Array)
-
-    0xC0  // End Collection
-};
-
-static_assert(sizeof(desc_hid_report) == 29,
-              "HID report descriptor must be exactly 29 bytes to match OEM wDescriptorLength");
 
 class Toypad {
    public:
@@ -61,6 +31,21 @@ class Toypad {
      */
     void update();
 
+    /**
+     * @brief Returns the active platform this Toypad is presenting as.
+     */
+    ToypadPlatform platform() const { return _platform; }
+
+    /**
+     * @brief Changes the active platform and re-initialises the USB
+     *        interface with the matching VID/PID.
+     *
+     *  The new value is NOT automatically persisted to Config.
+     *
+     * @param p New platform.
+     */
+    void setPlatform(ToypadPlatform p);
+
     PlaypadPad* getPad(PadLocation loc) {
         if (loc == PadLocation::ALL) {
             return nullptr;
@@ -72,21 +57,17 @@ class Toypad {
     inline void sendPacket(BasePacket& packet) {
         log_dbg("[Playpad] Sending packet data: %s", packet.toHexString());
 
-        uint8_t buffer[PLAYPAD_MAX_PACKET_SIZE];
-        memcpy(buffer, packet.data, PLAYPAD_MAX_PACKET_SIZE);
-        _sendReport(buffer, PLAYPAD_MAX_PACKET_SIZE);
-    }
+        uint8_t buffer[PLAYPAD_MAX_PACKET_SIZE]{};
 
-    inline void sendPacket(uint8_t* packet) {
-        static char hexString[PLAYPAD_MAX_PACKET_SIZE * 2 + 1];
-        for (size_t i = 0; i < PLAYPAD_MAX_PACKET_SIZE; ++i) {
-            sprintf(&hexString[i * 2], "%02X", packet[i]);
+        if (_platform == ToypadPlatform::X360) {
+            // Prepend [0x0B][0x16] and then shift packet content right by 2 bytes.
+            buffer[0] = 0x0B;
+            buffer[1] = 0x16;
+            memcpy(buffer + 2, packet.data, PLAYPAD_MAX_PACKET_SIZE - 2);
+        } else {
+            memcpy(buffer, packet.data, PLAYPAD_MAX_PACKET_SIZE);
         }
 
-        log_dbg("[Playpad] Sending RAW packet data: %s", hexString);
-
-        uint8_t buffer[PLAYPAD_MAX_PACKET_SIZE];
-        memcpy(buffer, packet, PLAYPAD_MAX_PACKET_SIZE);
         _sendReport(buffer, PLAYPAD_MAX_PACKET_SIZE);
     }
 
@@ -118,12 +99,19 @@ class Toypad {
 
    private:
     /**
+     * @brief Current platform that the toypad is configured for
+     *
+     */
+    ToypadPlatform _platform = ToypadPlatform::PS3;
+
+    /**
      * @brief The Adafruit_USBD_HID instance that manages the USB HID interface. This is configured
      * to use the report descriptor defined above, and will handle the USB communication with the
      * host.
      *
      */
     Adafruit_USBD_HID _usb_hid;
+    X360PortalUSB _x360_usb;
 
     /**
      * @brief A simple boolean state for whether or not we're already sending a packet, this

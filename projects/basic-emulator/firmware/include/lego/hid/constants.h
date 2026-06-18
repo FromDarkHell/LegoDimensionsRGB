@@ -6,6 +6,41 @@ constexpr int PLAYPAD_MAX_PACKET_SIZE = 0x0020;
 constexpr int NUM_PADS = 0x03;
 
 /**
+ * @brief PS3 / PC playpad (original PDP reader).
+ *  VID 0x0E6F  PID 0x0241  "LEGO READER V2.10"
+ *  Packets have a standard [type][length][cmd_type]... layout.
+ */
+#define PS3_PLAYPAD_VENDOR_ID 0x0E6F
+#define PS3_PLAYPAD_PRODUCT_ID 0x0241
+#define PS3_PLAYPAD_PRODUCT "LEGO READER V2.10"
+#define PS3_PLAYPAD_MANUFACTURER "PDP LIMITED. "
+#define PS3_PLAYPAD_SERIAL "P.D.P.000000"
+#define PS3_PLAYPAD_VERSION 0x0100
+
+#define X360_PLAYPAD_VENDOR_ID 0x24C6
+#define X360_PLAYPAD_PRODUCT_ID 0xFA01
+#define X360_PLAYPAD_PRODUCT "LEGO(R) DIMENSIONS(TM)"
+#define X360_PLAYPAD_MANUFACTURER "Warner Bros."
+
+#define X360_PLAYPAD_SERIAL "03108E28"
+#define X360_PLAYPAD_VERSION 0x0100
+
+/**
+ * @brief Selects which console/platform the emulator presents itself as.
+ *
+ *  The value is persisted in the Config store under the key "platform"
+ *  and can be changed via the web UI (or via the hardware-level switch).
+ *
+ *  PS3 has basic packets (see other files)
+ *  X360 adds in an extra packet prefix, plus requires XSM3 authentication on retail consoles, and
+ * has different VID/PIDs
+ */
+enum class ToypadPlatform : uint8_t {
+    PS3 = 0x00,
+    X360 = 0x01,
+};
+
+/**
  * @brief A byte enum defining whether or not a packet is a command (aka sent by the game -> pad
  * *or* an "event" which is pad -> game)
  *

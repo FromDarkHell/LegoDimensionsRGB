@@ -7,7 +7,7 @@ from gateway import Gateway
 def main():
     gateway = Gateway(platform="xbox_360")
 
-    if False:
+    if True:
         gateway.switch_pad(0, (255, 0, 255))
     elif False:
         gateway.flash_pads(
@@ -54,7 +54,7 @@ def main():
             ]
         )
 
-    gateway.sniff()
+    # gateway.sniff()
 
 
 if __name__ == "__main__":

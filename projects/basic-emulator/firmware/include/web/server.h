@@ -52,5 +52,5 @@ class LegoServer {
     uint32_t _lastStoreMs = 0;
     static constexpr uint32_t STORE_DEBOUNCE_MS = 2000;
 
-    Toypad* playpad = nullptr;
+    Toypad* toypad = nullptr;
 };

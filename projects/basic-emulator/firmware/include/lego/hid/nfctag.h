@@ -143,7 +143,7 @@ class NFCTag {
     }
 
     // ------------------------------------------------------------------
-    // load / dump — replaces readFile / writeFile; operate on raw bytes.
+    // load / dump; operate on raw bytes.
     // ------------------------------------------------------------------
     void load(const uint8_t* src, uint8_t len) {
         uint8_t n = (len < TAG_SIZE) ? len : TAG_SIZE;

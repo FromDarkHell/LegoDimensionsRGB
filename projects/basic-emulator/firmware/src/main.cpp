@@ -15,6 +15,7 @@ PlaypadLEDController<4> padLEDs(&playPad, {3, 1, 3});
 
 void create_captive_portal() {
     logger.blinkStatus(5, 1000);
+    playPad.getPad(PadLocation::CENTER)->setColor(PadColor::Red());
 
     log_dbg("[create_captive_portal] Creating captive portal...");
     initializationPortal = new CaptivePortal("captive", NULL);
@@ -31,16 +32,21 @@ void setup() {
 
     randomSeed(analogRead(A1));
 
-    playPad.begin();
-
     log_init();
     config.init();
 
+    playPad.begin();
     padLEDs.begin();
 
     if (config.getBool("initialized", false)) {
         log_dbg("[setup] Device already initialized, skipping captive portal...");
         logger.blinkStatus(2, 100);
+
+        if (playPad.platform() == ToypadPlatform::PS3) {
+            playPad.getPad(PadLocation::CENTER)->setFade(PadColor::Blue(), 50, 2);
+        } else {
+            playPad.getPad(PadLocation::CENTER)->setFade(PadColor::Green(), 50, 2);
+        }
 
         return;
     }
@@ -100,26 +106,3 @@ void loop() {
     TinyUSBDevice.task();
 #endif
 }
-
-// #include <FastLED.h>
-
-// #define NUM_LEDS 1
-// #define DATA_PIN 4  // GPIO number, not physical pin number!
-
-// CRGB leds[NUM_LEDS];
-
-// void setup() {
-//     FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);
-//     leds[0] = CRGB::Blue;
-//     FastLED.show();
-//     delay(100);
-//     FastLED.show();  // second call to ensure PIO is initialized properly
-// }
-// void loop() {
-//     leds[0] = CRGB::Blue;
-//     FastLED.show();
-//     delay(500);
-//     leds[0] = CRGB::Black;
-//     FastLED.show();
-//     delay(500);
-// }
