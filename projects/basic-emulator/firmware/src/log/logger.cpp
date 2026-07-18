@@ -11,10 +11,17 @@ void Logger::begin() {
 }
 
 void Logger::log(const char* level, const char* fmt, va_list args) {
-    char buffer[256];
+    char buffer[512];
     unsigned long now = millis();
     int n = snprintf(buffer, sizeof(buffer), "[%s][%lu ms] ", level, now);
-    vsnprintf(buffer + n, sizeof(buffer) - n, fmt, args);
+
+    char expandedFmt[512];
+    va_list argsCopy;
+    va_copy(argsCopy, args);
+    expandHexSpecifiers(expandedFmt, sizeof(expandedFmt), fmt, argsCopy);
+    va_end(argsCopy);
+
+    vsnprintf(buffer + n, sizeof(buffer) - n, expandedFmt, args);
     strncat(buffer, "\n", sizeof(buffer) - strlen(buffer) - 1);
 
     sendLogOutput(buffer);

@@ -1,12 +1,12 @@
 {
-	"folders": [
-		{
-			"name": "firmware",
-			"path": "projects/basic-emulator/firmware"
-		},
-		{
-			"name": "LegoDimensionsRGB",
-			"path": "."
-		}
-	]
+  "folders": [
+    {
+      "name": "firmware",
+      "path": "projects/basic-emulator/firmware",
+    },
+    {
+      "name": "LegoDimensionsRGB",
+      "path": ".",
+    },
+  ],
 }

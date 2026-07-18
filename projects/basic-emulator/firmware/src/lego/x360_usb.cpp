@@ -2,6 +2,33 @@
 #include "log/logger.h"
 
 // -----------------------------------------------------------------------
+//  Device descriptor patch
+//
+//  Adafruit TinyUSB defaults to bDeviceClass=0x00. The X360 only initiates
+//  XSM3 authentication when it sees bDeviceClass=0xFF.
+// -----------------------------------------------------------------------
+extern "C" tusb_desc_device_t const* __real_tud_descriptor_device_cb(void);
+
+extern "C" tusb_desc_device_t const* __wrap_tud_descriptor_device_cb(void) {
+    static tusb_desc_device_t patched;
+    memcpy(&patched, __real_tud_descriptor_device_cb(), sizeof(patched));
+    patched.bDeviceClass = 0xFF;
+    patched.bDeviceSubClass = 0xFF;
+    patched.bDeviceProtocol = 0xFF;
+    return &patched;
+}
+
+extern "C" uint8_t const* __real_tud_descriptor_bos_cb(void);
+
+extern "C" uint8_t const* __wrap_tud_descriptor_bos_cb(void) {
+    return nullptr;
+}
+
+extern "C" uint8_t const* tud_descriptor_bos_cb(void) {
+    return NULL;
+}
+
+// -----------------------------------------------------------------------
 //  XInput capability response payloads
 //
 //  The Xbox 360 host sends GET_REPORT control requests to Interface 1 to
@@ -40,9 +67,6 @@ X360PortalUSB::X360PortalUSB() {
 }
 
 bool X360PortalUSB::begin() {
-    // Adafruit's string builder is hardcapped at 32 UTF-16 chars
-    // (Adafruit_USBD_Device.cpp strcpy_utf16 call).
-    // TODO: Make a PR for that repo in order to fix it, its an easy fix anyway.
     _ifaceXSM3.setStringIndex(
         TinyUSBDevice.addStringDescriptor("Xbox Security Method 3, Version 1.00, © 2005 Microsoft "
                                           "Corporation. All rights reserved."));
@@ -147,22 +171,24 @@ uint16_t X360IfacePortal::getInterfaceDescriptor(uint8_t /*itfnum_deprecated*/,
     return LEN;
 }
 
-extern "C" void tud_vendor_rx_cb(uint8_t itf, uint8_t const* buffer, uint16_t bufsize) {
-    // You *have* to consume/read the data from the FIFO buffer in order to get outputs
+extern "C" void tud_vendor_rx_cb(uint8_t itf, uint8_t const* /*buffer*/, uint32_t /*bufsize*/) {
+    uint8_t data[CFG_TUD_VENDOR_EPSIZE];
+    uint32_t avail = tud_vendor_n_available(itf);
+    if (avail > sizeof(data)) {
+        avail = sizeof(data);
+    }
+    uint32_t read = tud_vendor_n_read(itf, data, avail);
+
+    log_dbg("[X360] tud_vendor_rx_cb itf=%d read=%d", itf, read);
+
     if (itf != 0) {
         // Stub interfaces 1-3: drain without processing.
-        uint8_t discard[CFG_TUD_VENDOR_EPSIZE];
-        tud_vendor_n_read(itf, discard, bufsize);
         return;
     }
 
     if (X360PortalUSB::_instance) {
-        X360PortalUSB::_instance->_handleRx(buffer, bufsize);
+        X360PortalUSB::_instance->_handleRx(data, read);
     }
-
-    // Drain Interface 0 FIFO after handing the data up.
-    uint8_t discard[CFG_TUD_VENDOR_EPSIZE];
-    tud_vendor_n_read(0, discard, bufsize);
 }
 
 extern "C" bool tud_vendor_control_xfer_cb(uint8_t rhport,
