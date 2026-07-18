@@ -54,8 +54,10 @@ void Logger::appendToLogBuffer(const char* msg) {
 }
 
 void Logger::sendLogOutput(const char* msg) {
+#ifdef DEBUG
     Serial.print(msg);    // USB CDC
     LOG_UART.print(msg);  // Hardware UART
+#endif
 }
 
 void log_init() {

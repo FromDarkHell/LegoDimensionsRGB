@@ -171,6 +171,11 @@ uint16_t X360IfacePortal::getInterfaceDescriptor(uint8_t /*itfnum_deprecated*/,
     return LEN;
 }
 
+extern "C" void tud_umount_cb(void) {
+    // Genuine physical disconnect - safe to drop persisted XSM3 auth state.
+    X360XSM3::reset();
+}
+
 extern "C" void tud_vendor_rx_cb(uint8_t itf, uint8_t const* /*buffer*/, uint32_t /*bufsize*/) {
     uint8_t data[CFG_TUD_VENDOR_EPSIZE];
     uint32_t avail = tud_vendor_n_available(itf);
@@ -178,8 +183,6 @@ extern "C" void tud_vendor_rx_cb(uint8_t itf, uint8_t const* /*buffer*/, uint32_
         avail = sizeof(data);
     }
     uint32_t read = tud_vendor_n_read(itf, data, avail);
-
-    log_dbg("[X360] tud_vendor_rx_cb itf=%d read=%d", itf, read);
 
     if (itf != 0) {
         // Stub interfaces 1-3: drain without processing.
@@ -194,6 +197,11 @@ extern "C" void tud_vendor_rx_cb(uint8_t itf, uint8_t const* /*buffer*/, uint32_
 extern "C" bool tud_vendor_control_xfer_cb(uint8_t rhport,
                                            uint8_t stage,
                                            tusb_control_request_t const* request) {
+    if (stage == CONTROL_STAGE_ACK) {
+        X360XSM3::handleAck(request);
+        return true;
+    }
+
     if (stage != CONTROL_STAGE_SETUP) {
         return true;
     }
@@ -219,9 +227,18 @@ extern "C" bool tud_vendor_control_xfer_cb(uint8_t rhport,
                                 sizeof(xinput_vibration_caps));
     }
 
-    // XSM3 host-to-device control requests
+    // XSM3 authentication requests (interface 3)
+    if (X360XSM3::handleSetup(rhport, request)) {
+        return true;
+    }
+
+    // Generic host-to-device ACK fallback for other vendor OUT requests
+    // (e.g. controller LED/rumble config on interface 1) that we don't
+    // otherwise implement yet. Not logged - the console sends these
+    // frequently (roughly once a second) and logging every one over the
+    // slow debug UART adds enough latency to the control transfer path
+    // that the console's watchdog can decide the portal went unresponsive.
     if (bmRT == 0x41) {
-        log_dbg("[X360] XSM3 ACK (bRequest=0x%02X wValue=0x%04X)", bReq, wVal);
         return tud_control_status(rhport, request);
     }
 

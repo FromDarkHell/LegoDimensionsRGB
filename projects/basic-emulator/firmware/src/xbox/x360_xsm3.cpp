@@ -1,4 +1,10 @@
 #include "xbox/x360_xsm3.h"
+#include "log/logger.h"
+
+extern "C" {
+#include <lego/hid/constants.h>
+#include "libxsm3/xsm3.h"
+}
 
 // -----------------------------------------------------------------------
 //  Interface 3 -> XSM3 security stub
@@ -43,3 +49,114 @@ uint16_t X360IfaceXSM3::getInterfaceDescriptor(uint8_t /*itfnum_deprecated*/,
 
     return LEN;
 }
+
+// -----------------------------------------------------------------------
+//  X360XSM3 - control-request driven wrapper around libxsm3
+// -----------------------------------------------------------------------
+namespace X360XSM3 {
+
+namespace {
+
+// Two-byte state value returned for request 0x86 ("done?" poll).
+// We always finish challenge init/verify synchronously inside handleAck(),
+// so by the time the Xbox polls us the answer is always "complete".
+constexpr uint16_t STATE_COMPLETE = 0x0002;
+
+bool _initialised = false;
+
+// OUT data landing buffers for the two host->device requests.
+uint8_t _challengeInitBuf[0x22];
+uint8_t _challengeVerifyBuf[0x16];
+
+// Length of the currently-valid xsm3_challenge_response contents, set once
+// challenge init/verify has actually been processed in handleAck().
+uint16_t _responseLen = 0;
+
+uint16_t clampLen(uint16_t requested, uint16_t actual) {
+    return requested < actual ? requested : actual;
+}
+
+}  // namespace
+
+bool handleSetup(uint8_t rhport, tusb_control_request_t const* request) {
+    // Dispatch on bRequest alone (not bmRequestType) - these bRequest codes
+    // are unique to XSM3 and TinyUSB already infers IN/OUT direction for
+    // tud_control_xfer() from the request itself, so we don't need to gate
+    // on the exact bmRequestType byte a given console happens to send.
+    const uint8_t bReq = request->bRequest;
+
+    switch (bReq) {
+        // Get identification data
+        case 0x81: {
+            if (!_initialised) {
+                uint8_t serial[0x0C];
+                for (size_t i = 0; i < sizeof(serial); i++) {
+                    serial[i] = rand() & 0xFF;
+                }
+                xsm3_set_vid_pid(serial, X360_PLAYPAD_VENDOR_ID, X360_PLAYPAD_PRODUCT_ID);
+                xsm3_initialise_state();
+                xsm3_set_identification_data(xsm3_id_data_ms_controller);
+                _initialised = true;
+                log_dbg("[X360][XSM3] State initialised, sending identification data");
+            } else {
+                log_dbg("[X360][XSM3] Re-auth requested; reusing existing identification data");
+            }
+
+            const uint16_t len = clampLen(request->wLength, sizeof(xsm3_id_data_ms_controller));
+            return tud_control_xfer(rhport, request, (void*)xsm3_id_data_ms_controller, len);
+        }
+
+        // Challenge init (host -> device)
+        case 0x82:
+            return tud_control_xfer(rhport, request, _challengeInitBuf, sizeof(_challengeInitBuf));
+
+        // Challenge verify (host -> device)
+        case 0x87:
+            return tud_control_xfer(rhport, request, _challengeVerifyBuf,
+                                    sizeof(_challengeVerifyBuf));
+
+        // No-op ACK - seen from real consoles between challenge rounds.
+        case 0x84:
+            return tud_control_status(rhport, request);
+
+        // Get challenge response
+        case 0x83: {
+            log_dbg("[X360][XSM3] Sending challenge response (%d bytes)", _responseLen);
+            const uint16_t len = clampLen(request->wLength, _responseLen);
+            return tud_control_xfer(rhport, request, xsm3_challenge_response, len);
+        }
+
+        // Get auth state ("done?" poll)
+        case 0x86: {
+            const uint16_t len = clampLen(request->wLength, sizeof(STATE_COMPLETE));
+            return tud_control_xfer(rhport, request, (void*)&STATE_COMPLETE, len);
+        }
+
+        default:
+            return false;
+    }
+}
+
+void handleAck(tusb_control_request_t const* request) {
+    switch (request->bRequest) {
+        case 0x82:
+            xsm3_do_challenge_init(_challengeInitBuf);
+            _responseLen = 0x5 + 0x28 + 1;  // header + payload + checksum
+            log_dbg("[X360][XSM3] Challenge init processed");
+            break;
+        case 0x87:
+            xsm3_do_challenge_verify(_challengeVerifyBuf);
+            _responseLen = 0x5 + 0x10 + 1;  // header + payload + checksum
+            log_dbg("[X360][XSM3] Challenge verify processed");
+            break;
+        default:
+            break;
+    }
+}
+
+void reset() {
+    _initialised = false;
+    _responseLen = 0;
+}
+
+}  // namespace X360XSM3

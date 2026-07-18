@@ -3,7 +3,7 @@
 #include <Arduino.h>
 
 #define LOG_BUFFER_SIZE 4096 * 2 * 4
-#define BAUD_RATE 9600
+#define BAUD_RATE 921600
 
 #define LOG_UART Serial1
 #define LOG_UART_TX 17
