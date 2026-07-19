@@ -30,6 +30,11 @@ class X360PortalUSB {
     // Called from the tud_vendor_rx_cb() override in x360_usb.cpp.
     void _handleRx(uint8_t const* buf, uint16_t len);
 
+    // Exposed so tud_vendor_control_xfer_cb()/tud_umount_cb() in x360_usb.cpp
+    // can route XSM3 control requests straight to the interface that owns
+    // that state.
+    X360IfaceXSM3& xsm3() { return _ifaceXSM3; }
+
     static X360PortalUSB* _instance;
 
    private:

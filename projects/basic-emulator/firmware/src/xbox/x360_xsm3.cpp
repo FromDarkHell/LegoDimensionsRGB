@@ -51,34 +51,10 @@ uint16_t X360IfaceXSM3::getInterfaceDescriptor(uint8_t /*itfnum_deprecated*/,
 }
 
 // -----------------------------------------------------------------------
-//  X360XSM3 - control-request driven wrapper around libxsm3
+//  X360IfaceXSM3 - control-request driven wrapper around libxsm3
 // -----------------------------------------------------------------------
-namespace X360XSM3 {
 
-namespace {
-
-// Two-byte state value returned for request 0x86 ("done?" poll).
-// We always finish challenge init/verify synchronously inside handleAck(),
-// so by the time the Xbox polls us the answer is always "complete".
-constexpr uint16_t STATE_COMPLETE = 0x0002;
-
-bool _initialised = false;
-
-// OUT data landing buffers for the two host->device requests.
-uint8_t _challengeInitBuf[0x22];
-uint8_t _challengeVerifyBuf[0x16];
-
-// Length of the currently-valid xsm3_challenge_response contents, set once
-// challenge init/verify has actually been processed in handleAck().
-uint16_t _responseLen = 0;
-
-uint16_t clampLen(uint16_t requested, uint16_t actual) {
-    return requested < actual ? requested : actual;
-}
-
-}  // namespace
-
-bool handleSetup(uint8_t rhport, tusb_control_request_t const* request) {
+bool X360IfaceXSM3::handleSetup(uint8_t rhport, tusb_control_request_t const* request) {
     // Dispatch on bRequest alone (not bmRequestType) - these bRequest codes
     // are unique to XSM3 and TinyUSB already infers IN/OUT direction for
     // tud_control_xfer() from the request itself, so we don't need to gate
@@ -137,7 +113,7 @@ bool handleSetup(uint8_t rhport, tusb_control_request_t const* request) {
     }
 }
 
-void handleAck(tusb_control_request_t const* request) {
+void X360IfaceXSM3::handleAck(tusb_control_request_t const* request) {
     switch (request->bRequest) {
         case 0x82:
             xsm3_do_challenge_init(_challengeInitBuf);
@@ -154,9 +130,7 @@ void handleAck(tusb_control_request_t const* request) {
     }
 }
 
-void reset() {
+void X360IfaceXSM3::reset() {
     _initialised = false;
     _responseLen = 0;
 }
-
-}  // namespace X360XSM3

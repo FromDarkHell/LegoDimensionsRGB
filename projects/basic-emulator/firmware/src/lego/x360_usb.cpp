@@ -171,11 +171,6 @@ uint16_t X360IfacePortal::getInterfaceDescriptor(uint8_t /*itfnum_deprecated*/,
     return LEN;
 }
 
-extern "C" void tud_umount_cb(void) {
-    // Genuine physical disconnect - safe to drop persisted XSM3 auth state.
-    X360XSM3::reset();
-}
-
 extern "C" void tud_vendor_rx_cb(uint8_t itf, uint8_t const* /*buffer*/, uint32_t /*bufsize*/) {
     uint8_t data[CFG_TUD_VENDOR_EPSIZE];
     uint32_t avail = tud_vendor_n_available(itf);
@@ -198,7 +193,9 @@ extern "C" bool tud_vendor_control_xfer_cb(uint8_t rhport,
                                            uint8_t stage,
                                            tusb_control_request_t const* request) {
     if (stage == CONTROL_STAGE_ACK) {
-        X360XSM3::handleAck(request);
+        if (X360PortalUSB::_instance) {
+            X360PortalUSB::_instance->xsm3().handleAck(request);
+        }
         return true;
     }
 
@@ -228,7 +225,7 @@ extern "C" bool tud_vendor_control_xfer_cb(uint8_t rhport,
     }
 
     // XSM3 authentication requests (interface 3)
-    if (X360XSM3::handleSetup(rhport, request)) {
+    if (X360PortalUSB::_instance && X360PortalUSB::_instance->xsm3().handleSetup(rhport, request)) {
         return true;
     }
 
